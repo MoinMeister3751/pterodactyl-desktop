@@ -128,9 +128,10 @@ export function useServerResources(identifier: string | null, intervalSeconds: n
 export function useNodeLocationLookup() {
   const appApi = useApplicationApi();
   const [lookup, setLookup] = useState<Map<string, NodeLocationLookup> | null>(null);
-  const [unavailable, setUnavailable] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setError(null);
     if (!appApi) {
       setLookup(null);
       return;
@@ -141,14 +142,18 @@ export function useNodeLocationLookup() {
       .then((result) => {
         if (!cancelled) setLookup(result);
       })
-      .catch(() => {
-        // Application-API-Key evtl. ohne ausreichende Rechte - Feature einfach ausblenden.
-        if (!cancelled) setUnavailable(true);
+      .catch((err) => {
+        // Application-API-Key evtl. ungültig oder ohne ausreichende Rechte - Feature
+        // wird ausgeblendet, der Grund aber an den Aufrufer durchgereicht (statt still
+        // zu scheitern), damit die UI dem Nutzer zeigen kann, WARUM nichts passiert.
+        if (!cancelled) {
+          setError(err instanceof ApiError ? err.userMessage : "Application API nicht erreichbar.");
+        }
       });
     return () => {
       cancelled = true;
     };
   }, [appApi]);
 
-  return { lookup, unavailable };
+  return { lookup, error };
 }

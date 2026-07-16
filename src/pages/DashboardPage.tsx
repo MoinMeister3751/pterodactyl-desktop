@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -6,6 +6,8 @@ import { ServerList } from "@/features/servers/components/ServerList";
 import { useServers, useNodeLocationLookup, useServerResourcesMap } from "@/features/servers/hooks";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useSettingsStore } from "@/store/useSettingsStore";
+import { useProfileStore } from "@/store/useProfileStore";
+import { useToast } from "@/hooks/useToast";
 import { deriveDisplayStatus, type DisplayStatus } from "@/features/servers/statusUtils";
 
 const STATUS_FILTERS: Array<{ value: DisplayStatus | "all"; label: string }> = [
@@ -20,10 +22,19 @@ const STATUS_FILTERS: Array<{ value: DisplayStatus | "all"; label: string }> = [
 
 export function DashboardPage() {
   const { servers, loading, error, refetch } = useServers();
-  const { lookup } = useNodeLocationLookup();
+  const { lookup, error: lookupError } = useNodeLocationLookup();
+  const hasApplicationApiKey = useProfileStore((s) => !!s.activeProfile()?.applicationApiKey);
+  const toast = useToast();
   const refreshInterval = useSettingsStore((s) => s.refreshIntervalSeconds);
   const identifiers = useMemo(() => servers.map((s) => s.identifier), [servers]);
   const resourcesMap = useServerResourcesMap(identifiers, refreshInterval);
+
+  useEffect(() => {
+    if (hasApplicationApiKey && lookupError) {
+      toast.warning("Application API nicht nutzbar", lookupError);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lookupError, hasApplicationApiKey]);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<DisplayStatus | "all">("all");

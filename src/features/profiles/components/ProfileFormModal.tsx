@@ -10,7 +10,7 @@ import {
   validatePanelUrl,
   validateProfileName,
 } from "@/lib/utils/validation";
-import type { PanelProfile } from "@/lib/types/profile";
+import type { ConnectionTestResult, PanelProfile } from "@/lib/types/profile";
 
 interface ProfileFormModalProps {
   open: boolean;
@@ -26,7 +26,7 @@ export function ProfileFormModal({ open, onClose, editingProfile }: ProfileFormM
   const [showApplicationKey, setShowApplicationKey] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null);
   const [saving, setSaving] = useState(false);
 
   const addProfile = useProfileStore((s) => s.addProfile);
@@ -65,7 +65,11 @@ export function ProfileFormModal({ open, onClose, editingProfile }: ProfileFormM
     if (!validate()) return;
     setTesting(true);
     setTestResult(null);
-    const result = await testConnection({ panelUrl, clientApiKey });
+    const result = await testConnection({
+      panelUrl,
+      clientApiKey,
+      applicationApiKey: applicationApiKey.trim() || undefined,
+    });
     setTestResult(result);
     setTesting(false);
   }
@@ -174,7 +178,11 @@ export function ProfileFormModal({ open, onClose, editingProfile }: ProfileFormM
             <Input
               type="password"
               value={applicationApiKey}
-              onChange={(e) => setApplicationApiKey(e.target.value)}
+              onChange={(e) => {
+                setApplicationApiKey(e.target.value);
+                setErrors((prev) => ({ ...prev, applicationApiKey: "" }));
+                setTestResult(null);
+              }}
               placeholder="ptla_••••••••••••••••••••"
               error={errors.applicationApiKey}
               autoComplete="off"
@@ -183,12 +191,23 @@ export function ProfileFormModal({ open, onClose, editingProfile }: ProfileFormM
         )}
 
         {testResult && (
-          <div
-            className={`rounded-md px-3 py-2 text-xs ${
-              testResult.ok ? "bg-success-bg text-success" : "bg-danger-bg text-danger"
-            }`}
-          >
-            {testResult.message}
+          <div className="flex flex-col gap-1.5">
+            <div
+              className={`rounded-md px-3 py-2 text-xs ${
+                testResult.ok ? "bg-success-bg text-success" : "bg-danger-bg text-danger"
+              }`}
+            >
+              Client API: {testResult.message}
+            </div>
+            {testResult.applicationApi && (
+              <div
+                className={`rounded-md px-3 py-2 text-xs ${
+                  testResult.applicationApi.ok ? "bg-success-bg text-success" : "bg-warning-bg text-warning"
+                }`}
+              >
+                Application API: {testResult.applicationApi.message}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -27,4 +27,9 @@ export interface ConnectionTestResult {
   /** Nur gesetzt, wenn ok=true und die Panel-Version ermittelt werden konnte. */
   panelVersion?: string;
   latencyMs?: number;
+  /** Nur gesetzt, wenn beim Test ein Application-API-Key angegeben war. */
+  applicationApi?: {
+    ok: boolean;
+    message: string;
+  };
 }
