@@ -1,0 +1,32 @@
+node_modules
+dist
+dist-ssr
+*.local
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+build.log
+
+# Tauri
+src-tauri/target
+src-tauri/gen
+
+# Updater signing key - NEVER commit. Private key lives only locally / as GH secret.
+.keys/
+
+# Env
+.env
+.env.local
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
