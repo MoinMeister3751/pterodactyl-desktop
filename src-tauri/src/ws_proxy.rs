@@ -1,11 +1,12 @@
 // Nativer WebSocket-Proxy für die Wings-Live-Konsole.
 //
-// Warum das nötig ist: Ein Browser/WebView setzt bei WebSocket-Upgrades immer einen
-// Origin-Header (hier z. B. "tauri://localhost"). Viele Wings-Setups validieren diesen
-// Origin gegen die im Panel konfigurierte URL und lehnen alles andere beim Handshake
-// ab - die Verbindung bricht dann lautlos ab, bevor überhaupt eine Nachricht ankommt.
-// Eine native Rust-Verbindung über tokio-tungstenite sendet keinen Browser-Origin-Header
-// und umgeht dieses Problem, ohne die Wings-Konfiguration ändern zu müssen.
+// Warum das nötig ist: Wings validiert beim WebSocket-Handshake den Origin-Header
+// gegen die im Node/Wings-Config hinterlegte Panel-URL und lehnt jede Verbindung ab,
+// deren Origin nicht exakt passt (HTTP 403) - sowohl ein falscher Origin
+// (`tauri://localhost` aus dem WebView) als auch ein fehlender Origin werden abgelehnt.
+// Da das WebView den eigenen Origin nicht überschreiben lässt, läuft die Verbindung
+// nativ über tokio-tungstenite, wo wir den Origin-Header explizit auf die echte
+// Panel-URL des jeweiligen Profils setzen können.
 //
 // Nachrichten werden per Tauri-Event ans Frontend durchgereicht (siehe
 // src/lib/ws/tauriWebSocket.ts), Befehle vom Frontend kommen über ws_send() zurück.
@@ -16,7 +17,10 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, State};
 use tokio::sync::mpsc;
-use tokio_tungstenite::{connect_async, tungstenite::Message};
+use tokio_tungstenite::{
+    connect_async,
+    tungstenite::{client::IntoClientRequest, http::HeaderValue, Message},
+};
 
 #[derive(Default)]
 pub struct WsState(pub Mutex<HashMap<String, mpsc::UnboundedSender<Message>>>);
@@ -42,8 +46,21 @@ struct WsClosedPayload {
 }
 
 #[tauri::command]
-pub async fn ws_connect(app: AppHandle, state: State<'_, WsState>, url: String) -> Result<String, String> {
-    let (ws_stream, _response) = connect_async(&url)
+pub async fn ws_connect(
+    app: AppHandle,
+    state: State<'_, WsState>,
+    url: String,
+    origin: String,
+) -> Result<String, String> {
+    let mut request = url
+        .as_str()
+        .into_client_request()
+        .map_err(|e| format!("Ungültige Konsolen-URL: {e}"))?;
+    let origin_value = HeaderValue::from_str(&origin)
+        .map_err(|e| format!("Ungültiger Origin-Wert '{origin}': {e}"))?;
+    request.headers_mut().insert("Origin", origin_value);
+
+    let (ws_stream, _response) = connect_async(request)
         .await
         .map_err(|e| format!("Verbindung zur Konsole fehlgeschlagen: {e}"))?;
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useClientApi } from "@/hooks/useApi";
+import { useProfileStore } from "@/store/useProfileStore";
 import { TauriWebSocket } from "@/lib/ws/tauriWebSocket";
 import type { ConsoleLine, ConsoleLineKind, ServerPowerState, WingsSocketMessage } from "@/lib/types/pterodactyl";
 
@@ -32,6 +33,7 @@ function makeLine(kind: ConsoleLineKind, text: string): ConsoleLine {
  */
 export function useConsoleSocket(identifier: string | null) {
   const api = useClientApi();
+  const panelUrl = useProfileStore((s) => s.activeProfile()?.panelUrl);
   const [lines, setLines] = useState<ConsoleLine[]>([]);
   const [connectionState, setConnectionState] = useState<ConsoleConnectionState>("idle");
   const [powerState, setPowerState] = useState<ServerPowerState | null>(null);
@@ -50,7 +52,8 @@ export function useConsoleSocket(identifier: string | null) {
   }, []);
 
   const connect = useCallback(async () => {
-    if (!api || !identifier) return;
+    if (!api || !identifier || !panelUrl) return;
+    const origin = new URL(panelUrl).origin;
     closedByUser.current = false;
     isOpenRef.current = false;
     setConnectionState((prev) => (prev === "idle" ? "connecting" : "reconnecting"));
@@ -65,7 +68,7 @@ export function useConsoleSocket(identifier: string | null) {
       return;
     }
 
-    const socket = new TauriWebSocket(credentials.socket, {
+    const socket = new TauriWebSocket(credentials.socket, origin, {
       onOpen: () => {
         socket.send(JSON.stringify({ event: "auth", args: [credentials.token] }));
       },
@@ -144,7 +147,7 @@ export function useConsoleSocket(identifier: string | null) {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, identifier, appendLine]);
+  }, [api, identifier, panelUrl, appendLine]);
 
   const scheduleReconnect = useCallback(() => {
     if (closedByUser.current) return;
@@ -175,7 +178,7 @@ export function useConsoleSocket(identifier: string | null) {
       socketRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [identifier, api]);
+  }, [identifier, api, panelUrl]);
 
   return { lines, connectionState, powerState, sendCommand, clear, reconnect: connect };
 }

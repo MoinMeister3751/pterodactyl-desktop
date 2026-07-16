@@ -10,11 +10,11 @@ export interface TauriWebSocketHandlers {
 
 /**
  * Ersatz für `new WebSocket(url)`, der die Verbindung nativ auf der Rust-Seite
- * aufbaut (siehe src-tauri/src/ws_proxy.rs) statt im WebView. Grund: Das WebView
- * hängt beim WebSocket-Handshake immer einen Browser-Origin-Header an, den viele
- * Wings-Setups gegen die konfigurierte Panel-URL prüfen und ablehnen - die
- * Konsole verband sich dadurch nie (WS brach lautlos vor "auth success" ab).
- * Eine native Verbindung sendet keinen solchen Origin-Header.
+ * aufbaut (siehe src-tauri/src/ws_proxy.rs) statt im WebView. Grund: Wings prüft
+ * beim Handshake den Origin-Header gegen die im Node hinterlegte Panel-URL und
+ * lehnt alles andere mit HTTP 403 ab - das WebView sendet dabei aber immer seinen
+ * eigenen, festen Origin (`tauri://localhost`), der nie passt. Nativ können wir
+ * den Origin-Header explizit auf die echte Panel-URL setzen.
  */
 export class TauriWebSocket {
   private connectionId: string | null = null;
@@ -23,6 +23,7 @@ export class TauriWebSocket {
 
   constructor(
     private readonly url: string,
+    private readonly origin: string,
     private readonly handlers: TauriWebSocketHandlers,
   ) {
     void this.connect();
@@ -31,7 +32,7 @@ export class TauriWebSocket {
   private async connect() {
     let id: string;
     try {
-      id = await invoke<string>("ws_connect", { url: this.url });
+      id = await invoke<string>("ws_connect", { url: this.url, origin: this.origin });
     } catch (error) {
       this.handlers.onError?.(error instanceof Error ? error.message : String(error));
       this.handlers.onClose?.();
