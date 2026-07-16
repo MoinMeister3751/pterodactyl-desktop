@@ -167,7 +167,7 @@ Punkte hängen vom konkreten Panel-/Wings-Setup ab:
 | Feature | Abhängigkeit |
 |---|---|
 | Live-Konsole (WebSocket) | Wings muss WebSocket-Verbindungen von der App-Origin (`tauri://localhost`) akzeptieren. Bei strikter Origin-Prüfung im Reverse-Proxy vor Wings kann dies fehlschlagen - ggf. Proxy-Konfiguration anpassen. |
-| Node-/Location-Anzeige im Dashboard | Erfordert einen optionalen Application-API-Key mit Leserechten auf `/api/application/nodes` und `/api/application/locations`. Ohne Key wird nur der von der Client-API gelieferte Node-**Name** angezeigt (keine Location). |
+| Node-/Location-Anzeige im Dashboard + **Admin-Ansicht** (Sidebar-Punkt "Admin": Nodes, Locations, Nutzer, alle Server) | Erfordert einen optionalen Application-API-Key mit Leserechten auf `/api/application/{nodes,locations,users,servers}`. Ohne Key bleibt der Sidebar-Punkt "Admin" ausgeblendet und im Dashboard wird nur der von der Client-API gelieferte Node-**Name** angezeigt (keine Location). Die Admin-Ansicht ist read-only (keine Erstell-/Lösch-Aktionen). |
 | Aktivitätsprotokoll (Tab "Activity") | Erfordert Panel ≥ 1.11 (Endpoint `/api/client/servers/{id}/activity`). Ältere Panels zeigen hier einen leeren Zustand statt eines Fehlers. |
 | Docker-Image-Wechsel (Tab "Startup") | Erfordert einen Egg mit mehreren definierten Images UND dass der Account das Recht zum Wechseln hat; wird sonst automatisch ausgeblendet bzw. mit klarer Fehlermeldung abgefangen. |
 | Backup-Download | Nutzt die vom Panel signierte, kurzlebige Download-URL - abhängig von der Backup-Treiber-Konfiguration des Panels (lokal/S3/...). |
@@ -177,9 +177,10 @@ Punkte hängen vom konkreten Panel-/Wings-Setup ab:
 Dashboard, Server-Übersicht, Power-Steuerung (Start/Stop/Restart/Kill), Live-Konsole,
 Dateiverwaltung (Browsen/Editieren/Hoch-/Runterladen/Umbenennen/Löschen/Ordner
 anlegen), Backups (Erstellen/Löschen/Sperren/Download), Startup-Variablen,
-Netzwerk-Allokationen, mehrere Panel-Profile, Dark Mode, Auto-Refresh, Debug-Logs
-mit Export, Auto-Updater über GitHub Releases - alles gegen eine Standard-
-Pterodactyl-1.11+-Installation getestet und ohne Mock-Daten implementiert.
+Netzwerk-Allokationen, mehrere Panel-Profile, optionale Admin-Ansicht
+(Nodes/Locations/Nutzer/alle Server via Application API), Dark Mode, Auto-Refresh,
+Debug-Logs mit Export, Auto-Updater über GitHub Releases - alles gegen eine
+Standard-Pterodactyl-1.11+-Installation getestet und ohne Mock-Daten implementiert.
 
 ## Lizenz
 

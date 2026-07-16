@@ -7,15 +7,17 @@ const MIN_WIDTH = 180;
 const MAX_WIDTH = 360;
 const DEFAULT_WIDTH = 232;
 
-const navItems = [
-  { to: "/", label: "Dashboard", icon: DashboardIcon, end: true },
-  { to: "/settings", label: "Einstellungen", icon: SettingsIcon, end: false },
-];
+const baseNavItems = [{ to: "/", label: "Dashboard", icon: DashboardIcon, end: true }];
+const adminNavItem = { to: "/admin", label: "Admin", icon: AdminIcon, end: false };
+const settingsNavItem = { to: "/settings", label: "Einstellungen", icon: SettingsIcon, end: false };
 
 export function Sidebar() {
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const isDragging = useRef(false);
   const profile = useProfileStore((s) => s.activeProfile());
+  const navItems = profile?.applicationApiKey
+    ? [...baseNavItems, adminNavItem, settingsNavItem]
+    : [...baseNavItems, settingsNavItem];
 
   const onMouseDown = useCallback(() => {
     isDragging.current = true;
@@ -92,6 +94,19 @@ function DashboardIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h8v8H3V3zm10 0h8v5h-8V3zM3 13h8v8H3v-8zm10 3h8v5h-8v-5z" />
+    </svg>
+  );
+}
+
+function AdminIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 12a3 3 0 106 0 3 3 0 00-6 0zM3 20a6 6 0 0112 0M12.5 4.5l1.5 1.5 3-3M17 12h4M17 16h4M17 8h2"
+      />
     </svg>
   );
 }

@@ -1,6 +1,6 @@
 [package]
 name = "pterodactyl-desktop"
-version = "0.1.2"
+version = "0.1.3"
 description = "Moderner Windows-Desktop-Client für Pterodactyl Panel/Wings"
 authors = ["you"]
 edition = "2021"

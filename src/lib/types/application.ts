@@ -1,8 +1,10 @@
 /**
  * Typdefinitionen für die Pterodactyl **Application API** (`/api/application/...`).
  * Diese API erfordert einen Admin-Account und einen "ptla_"-Key. Sie ist in dieser
- * App optional und wird ausschließlich verwendet, um das Dashboard um Node-/Location-
- * Informationen anzureichern, die die Client-API nicht (vollständig) liefert.
+ * App optional: Ist ein Application-API-Key hinterlegt, reichert sie das Dashboard
+ * um Node-/Location-Informationen an UND schaltet die Admin-Ansicht frei
+ * (siehe features/admin) mit Nodes-, Locations-, Nutzer- und Panel-weiter
+ * Server-Übersicht.
  */
 
 export interface LocationAttributes {
@@ -71,7 +73,9 @@ export interface AdminServerAttributes {
   };
   node: number;
   allocation: number;
+  user: number;
   egg: number;
+  created_at: string;
 }
 
 /** Angereicherter Datensatz: Node-Name -> Location, clientseitig zusammengeführt. */

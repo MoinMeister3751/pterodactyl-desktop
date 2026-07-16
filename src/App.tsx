@@ -5,6 +5,7 @@ import { ProfilesPage } from "@/pages/ProfilesPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { ServerDetailPage } from "@/pages/ServerDetailPage";
 import { SettingsPage } from "@/pages/SettingsPage";
+import { AdminPage } from "@/pages/AdminPage";
 import { ToastHost } from "@/components/ui/Toast";
 import { ConfirmDialogHost } from "@/components/ui/ConfirmDialog";
 import { useProfileStore } from "@/store/useProfileStore";
@@ -55,6 +56,7 @@ export function App() {
         >
           <Route index element={<DashboardPage />} />
           <Route path="servers/:identifier" element={<ServerDetailPage />} />
+          <Route path="admin" element={<AdminPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
