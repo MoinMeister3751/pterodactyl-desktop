@@ -24,10 +24,7 @@ export function Switch({ checked, onChange, disabled, label }: SwitchProps) {
       )}
     >
       <span
-        className={cn(
-          "inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform",
-          checked ? "translate-x-4.5" : "translate-x-1",
-        )}
+        className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
         style={{ transform: checked ? "translateX(18px)" : "translateX(2px)" }}
       />
     </button>

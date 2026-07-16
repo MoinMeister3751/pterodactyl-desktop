@@ -121,7 +121,10 @@ export function ProfileFormModal({ open, onClose, editingProfile }: ProfileFormM
         <Field label="Profilname">
           <Input
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              setErrors((prev) => ({ ...prev, name: "" }));
+            }}
             placeholder="z. B. Mein Netzwerk"
             error={errors.name}
           />
@@ -130,7 +133,11 @@ export function ProfileFormModal({ open, onClose, editingProfile }: ProfileFormM
         <Field label="Panel-URL">
           <Input
             value={panelUrl}
-            onChange={(e) => setPanelUrl(e.target.value)}
+            onChange={(e) => {
+              setPanelUrl(e.target.value);
+              setErrors((prev) => ({ ...prev, panelUrl: "" }));
+              setTestResult(null);
+            }}
             placeholder="https://panel.example.com"
             error={errors.panelUrl}
           />
@@ -140,7 +147,11 @@ export function ProfileFormModal({ open, onClose, editingProfile }: ProfileFormM
           <Input
             type="password"
             value={clientApiKey}
-            onChange={(e) => setClientApiKey(e.target.value)}
+            onChange={(e) => {
+              setClientApiKey(e.target.value);
+              setErrors((prev) => ({ ...prev, clientApiKey: "" }));
+              setTestResult(null);
+            }}
             placeholder="ptlc_••••••••••••••••••••"
             error={errors.clientApiKey}
             autoComplete="off"
