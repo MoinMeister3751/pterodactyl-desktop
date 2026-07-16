@@ -84,3 +84,62 @@ export interface NodeLocationLookup {
   locationShort: string | null;
   locationLong: string | null;
 }
+
+export interface NestAttributes {
+  id: number;
+  uuid: string;
+  author: string;
+  name: string;
+  description: string | null;
+}
+
+export interface EggVariableDefinition {
+  id: number;
+  name: string;
+  description: string;
+  env_variable: string;
+  default_value: string;
+  user_viewable: boolean;
+  user_editable: boolean;
+  rules: string;
+}
+
+export interface EggAttributes {
+  id: number;
+  nest: number;
+  author: string;
+  name: string;
+  description: string | null;
+  docker_image: string;
+  docker_images: Record<string, string>;
+  startup: string;
+  relationships?: {
+    variables?: {
+      object: "list";
+      data: Array<{ object: "egg_variable"; attributes: EggVariableDefinition }>;
+    };
+  };
+}
+
+export interface CreateUserPayload {
+  email: string;
+  username: string;
+  first_name: string;
+  last_name: string;
+  password?: string;
+  root_admin?: boolean;
+}
+
+export interface CreateServerPayload {
+  name: string;
+  description?: string;
+  user: number;
+  egg: number;
+  docker_image: string;
+  startup: string;
+  environment: Record<string, string>;
+  limits: { memory: number; swap: number; disk: number; io: number; cpu: number };
+  feature_limits: { databases: number; allocations: number; backups: number };
+  deploy: { locations: number[]; dedicated_ip: boolean; port_range: string[] };
+  start_on_completion?: boolean;
+}

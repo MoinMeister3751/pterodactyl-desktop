@@ -166,7 +166,7 @@ Punkte hängen vom konkreten Panel-/Wings-Setup ab:
 
 | Feature | Abhängigkeit |
 |---|---|
-| Live-Konsole (WebSocket) | Wings muss WebSocket-Verbindungen von der App-Origin (`tauri://localhost`) akzeptieren. Bei strikter Origin-Prüfung im Reverse-Proxy vor Wings kann dies fehlschlagen - ggf. Proxy-Konfiguration anpassen. |
+| Live-Konsole (WebSocket) | Läuft über einen nativen Rust-WebSocket-Client (`src-tauri/src/ws_proxy.rs`), nicht über das WebView. Grund: Wings prüft beim Handshake oft den Browser-Origin-Header gegen die konfigurierte Panel-URL - `tauri://localhost` würde dabei abgelehnt und die Verbindung bräche lautlos ab. Die native Verbindung sendet keinen Origin-Header und umgeht das. |
 | Node-/Location-Anzeige im Dashboard + **Admin-Ansicht** (Sidebar-Punkt "Admin": Nodes, Locations, Nutzer, alle Server) | Erfordert einen optionalen Application-API-Key mit Leserechten auf `/api/application/{nodes,locations,users,servers}`. Ohne Key bleibt der Sidebar-Punkt "Admin" ausgeblendet und im Dashboard wird nur der von der Client-API gelieferte Node-**Name** angezeigt (keine Location). Die Admin-Ansicht ist read-only (keine Erstell-/Lösch-Aktionen). |
 | Aktivitätsprotokoll (Tab "Activity") | Erfordert Panel ≥ 1.11 (Endpoint `/api/client/servers/{id}/activity`). Ältere Panels zeigen hier einen leeren Zustand statt eines Fehlers. |
 | Docker-Image-Wechsel (Tab "Startup") | Erfordert einen Egg mit mehreren definierten Images UND dass der Account das Recht zum Wechseln hat; wird sonst automatisch ausgeblendet bzw. mit klarer Fehlermeldung abgefangen. |

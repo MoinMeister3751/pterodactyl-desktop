@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { useApplicationApi } from "@/hooks/useApi";
+import { useApplicationApi, useClientApi } from "@/hooks/useApi";
 import { ApiError } from "@/lib/api/errors";
 import type {
   AdminServerAttributes,
   AdminUserAttributes,
+  EggAttributes,
   LocationAttributes,
+  NestAttributes,
   NodeAttributes,
 } from "@/lib/types/application";
 
@@ -67,4 +69,65 @@ export function useAdminUsers(): AdminListResult<AdminUserAttributes> {
 
 export function useAdminServers(): AdminListResult<AdminServerAttributes> {
   return useAdminList((api) => api.listServers());
+}
+
+export function useAdminNests(): AdminListResult<NestAttributes> {
+  return useAdminList((api) => api.listNests());
+}
+
+/** Lädt die Eggs eines Nests neu, sobald sich die Nest-Auswahl ändert (z. B. im Server-Erstellen-Formular). */
+export function useAdminEggs(nestId: number | null): AdminListResult<EggAttributes> {
+  const api = useApplicationApi();
+  const [data, setData] = useState<EggAttributes[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refetch = useCallback(async () => {
+    if (!api || nestId === null) {
+      setData([]);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      setData(await api.listEggs(nestId));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.userMessage : "Eggs konnten nicht geladen werden.");
+    } finally {
+      setLoading(false);
+    }
+  }, [api, nestId]);
+
+  useEffect(() => {
+    void refetch();
+  }, [refetch]);
+
+  return { data, loading, error, refetch };
+}
+
+/** Eigene Account-ID (über die Client-API), um "nur meine Server" filtern zu können. */
+export function useOwnAccountId(): number | null {
+  const clientApi = useClientApi();
+  const [id, setId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!clientApi) {
+      setId(null);
+      return;
+    }
+    let cancelled = false;
+    clientApi
+      .getAccount()
+      .then((account) => {
+        if (!cancelled) setId(account.id);
+      })
+      .catch(() => {
+        if (!cancelled) setId(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [clientApi]);
+
+  return id;
 }

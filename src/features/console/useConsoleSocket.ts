@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useClientApi } from "@/hooks/useApi";
+import { TauriWebSocket } from "@/lib/ws/tauriWebSocket";
 import type { ConsoleLine, ConsoleLineKind, ServerPowerState, WingsSocketMessage } from "@/lib/types/pterodactyl";
 
 export type ConsoleConnectionState = "idle" | "connecting" | "connected" | "reconnecting" | "closed" | "error";
@@ -23,9 +24,11 @@ function makeLine(kind: ConsoleLineKind, text: string): ConsoleLine {
  * lib/api/clientApi.ts#getWebsocketCredentials). Der Token läuft nach kurzer
  * Zeit ab ("token expiring"/"token expired") - wird hier automatisch erneuert.
  *
- * Annahme: Wings akzeptiert WebSocket-Verbindungen von der Desktop-App-Origin.
- * Je nach Wings-/Reverse-Proxy-Konfiguration kann eine striktere Origin-Prüfung
- * dies verhindern - siehe README, Abschnitt "Bekannte Einschränkungen".
+ * Die Verbindung läuft bewusst NICHT über das WebView-eigene `WebSocket`,
+ * sondern nativ über Rust (siehe lib/ws/tauriWebSocket.ts + src-tauri/src/ws_proxy.rs):
+ * Das WebView hängt beim Handshake einen Browser-Origin-Header an, den viele
+ * Wings-Setups gegen die konfigurierte Panel-URL prüfen und ablehnen - die
+ * Verbindung brach dadurch vorher lautlos ab, ohne dass "auth success" je ankam.
  */
 export function useConsoleSocket(identifier: string | null) {
   const api = useClientApi();
@@ -33,7 +36,8 @@ export function useConsoleSocket(identifier: string | null) {
   const [connectionState, setConnectionState] = useState<ConsoleConnectionState>("idle");
   const [powerState, setPowerState] = useState<ServerPowerState | null>(null);
 
-  const socketRef = useRef<WebSocket | null>(null);
+  const socketRef = useRef<TauriWebSocket | null>(null);
+  const isOpenRef = useRef(false);
   const reconnectAttempt = useRef(0);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closedByUser = useRef(false);
@@ -48,47 +52,51 @@ export function useConsoleSocket(identifier: string | null) {
   const connect = useCallback(async () => {
     if (!api || !identifier) return;
     closedByUser.current = false;
+    isOpenRef.current = false;
     setConnectionState((prev) => (prev === "idle" ? "connecting" : "reconnecting"));
 
+    let credentials: Awaited<ReturnType<typeof api.getWebsocketCredentials>>;
     try {
-      const credentials = await api.getWebsocketCredentials(identifier);
-      const socket = new WebSocket(credentials.socket);
-      socketRef.current = socket;
+      credentials = await api.getWebsocketCredentials(identifier);
+    } catch {
+      appendLine("system", "Konnte kein Konsolen-Token vom Panel abrufen (Client-API nicht erreichbar oder keine Berechtigung).");
+      setConnectionState("error");
+      scheduleReconnect();
+      return;
+    }
 
-      socket.onopen = () => {
+    const socket = new TauriWebSocket(credentials.socket, {
+      onOpen: () => {
         socket.send(JSON.stringify({ event: "auth", args: [credentials.token] }));
-      };
-
-      socket.onmessage = (event) => {
+      },
+      onMessage: (data) => {
         let message: WingsSocketMessage;
         try {
-          message = JSON.parse(event.data);
+          message = JSON.parse(data);
         } catch {
           return;
         }
         handleMessage(message);
-      };
-
-      socket.onerror = () => {
+      },
+      onError: (message) => {
+        appendLine("system", `Konsolenverbindung fehlgeschlagen: ${message}`);
         setConnectionState("error");
-      };
-
-      socket.onclose = () => {
+      },
+      onClose: () => {
+        isOpenRef.current = false;
         if (closedByUser.current) {
           setConnectionState("closed");
           return;
         }
         scheduleReconnect();
-      };
-    } catch {
-      appendLine("system", "Verbindung zur Konsole konnte nicht hergestellt werden.");
-      setConnectionState("error");
-      scheduleReconnect();
-    }
+      },
+    });
+    socketRef.current = socket;
 
     function handleMessage(message: WingsSocketMessage) {
       switch (message.event) {
         case "auth success":
+          isOpenRef.current = true;
           reconnectAttempt.current = 0;
           setConnectionState("connected");
           appendLine("system", "Verbunden mit Konsole.");
@@ -150,7 +158,7 @@ export function useConsoleSocket(identifier: string | null) {
   }, [connect]);
 
   const sendCommand = useCallback((command: string) => {
-    if (socketRef.current?.readyState !== WebSocket.OPEN) return false;
+    if (!isOpenRef.current || !socketRef.current) return false;
     socketRef.current.send(JSON.stringify({ event: "send command", args: [command] }));
     appendLine("input", command);
     return true;
