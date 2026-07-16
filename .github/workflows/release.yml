@@ -36,7 +36,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Pterodactyl Desktop ${{ github.ref_name }}"
-          releaseBody: "Siehe CHANGELOG.md für Details zu diesem Release."
-          releaseDraft: true
+          releaseBody: "Automatisch gebautes Release. Änderungen: https://github.com/${{ github.repository }}/commits/${{ github.ref_name }}"
+          releaseDraft: false
           prerelease: false
           args: --target x86_64-pc-windows-msvc
