@@ -23,6 +23,7 @@ import { ActivityPanel } from "@/features/activity/components/ActivityPanel";
 import { useClientApi } from "@/hooks/useApi";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { ApiError } from "@/lib/api/errors";
+import { isRateLimited } from "@/lib/api/rateLimitGuard";
 import { cn } from "@/lib/utils/cn";
 import type { ServerAttributes } from "@/lib/types/pterodactyl";
 
@@ -77,7 +78,10 @@ export function ServerDetailPage() {
   // ohne dabei erneut den Lade-Skeleton zu zeigen.
   useEffect(() => {
     if (refreshInterval <= 0) return;
-    const id = setInterval(() => void loadServer(), refreshInterval * 1000);
+    const id = setInterval(() => {
+      if (isRateLimited()) return;
+      void loadServer();
+    }, refreshInterval * 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, identifier, refreshInterval]);

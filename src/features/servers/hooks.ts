@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useClientApi, useApplicationApi } from "@/hooks/useApi";
 import { ApiError } from "@/lib/api/errors";
+import { isRateLimited } from "@/lib/api/rateLimitGuard";
 import type { ServerAttributes, ServerResourcesAttributes } from "@/lib/types/pterodactyl";
 import type { NodeLocationLookup } from "@/lib/types/application";
 
@@ -43,7 +44,12 @@ export function useServers(pollIntervalSeconds = 0): UseServersResult {
 
   useEffect(() => {
     if (!pollIntervalSeconds || pollIntervalSeconds <= 0) return;
-    const id = setInterval(() => void fetchServers(), pollIntervalSeconds * 1000);
+    const id = setInterval(() => {
+      // Bei aktivem Rate-Limit-Backoff diesen Tick überspringen, statt das Limit
+      // immer weiter zu verlängern (siehe lib/api/rateLimitGuard.ts).
+      if (isRateLimited()) return;
+      void fetchServers();
+    }, pollIntervalSeconds * 1000);
     return () => clearInterval(id);
   }, [pollIntervalSeconds, fetchServers]);
 
@@ -65,6 +71,7 @@ export function useServerResourcesMap(identifiers: string[], intervalSeconds: nu
 
     let cancelled = false;
     const tick = async () => {
+      if (isRateLimited()) return;
       const results = await Promise.allSettled(
         identifiers.map(async (id) => [id, await api.getServerResources(id)] as const),
       );
@@ -112,6 +119,7 @@ export function useServerResources(identifier: string | null, intervalSeconds: n
 
     let cancelled = false;
     const tick = async () => {
+      if (isRateLimited()) return;
       try {
         const data = await api.getServerResources(identifier);
         if (!cancelled && mounted.current) {

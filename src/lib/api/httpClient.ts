@@ -4,6 +4,7 @@ import type { PterodactylApiErrorBody } from "@/lib/types/api";
 import { useDebugLogStore } from "@/store/useDebugLogStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { redactSecrets } from "@/lib/utils/validation";
+import { triggerRateLimitBackoff } from "./rateLimitGuard";
 
 export interface RequestOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -130,6 +131,10 @@ export class PterodactylHttpClient {
 
   private async throwForErrorResponse(response: Response, url: string, method: string): Promise<never> {
     const kind = statusToErrorKind(response.status);
+    if (kind === "rate_limited") {
+      const retryAfter = Number(response.headers.get("Retry-After"));
+      triggerRateLimitBackoff(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined);
+    }
     let detail = response.statusText;
     try {
       const parsed = (await response.json()) as PterodactylApiErrorBody;

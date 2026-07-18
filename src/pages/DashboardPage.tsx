@@ -5,7 +5,7 @@ import { Select } from "@/components/ui/Select";
 import { Switch } from "@/components/ui/Switch";
 import { ServerList } from "@/features/servers/components/ServerList";
 import { useServers, useNodeLocationLookup, useServerResourcesMap } from "@/features/servers/hooks";
-import { useAdminServers, useAdminNodes } from "@/features/admin/hooks";
+import { useAdminServers, useAdminNodes, useOwnAccountId } from "@/features/admin/hooks";
 import { adaptAdminServer } from "@/features/servers/adminAdapter";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useSettingsStore } from "@/store/useSettingsStore";
@@ -29,11 +29,18 @@ export function DashboardPage() {
   const toast = useToast();
   const refreshInterval = useSettingsStore((s) => s.refreshIntervalSeconds);
 
+  const viewingAll = showAllServers && hasApplicationApiKey;
+
   // Serverliste läuft im Hintergrund mit, damit neu erstellte/gelöschte Server ohne
-  // manuellen Reload auftauchen - nutzt dasselbe Intervall wie die Ressourcenanzeige.
-  const ownServers = useServers(refreshInterval);
+  // manuellen Reload auftauchen. Pausiert, solange die Admin-Ansicht aktiv ist -
+  // vorher lief dieser Poll immer weiter mit, auch während "Alle Server" angezeigt
+  // wurde, und hat dort still gegen das Rate-Limit des Panels gezählt (der Fehler
+  // wurde nur nicht angezeigt, weil in der Admin-Ansicht ein anderer Fehlerwert
+  // gerendert wird - das Problem war also nie wirklich weg).
+  const ownServers = useServers(viewingAll ? 0 : refreshInterval);
   const { data: adminServers, loading: adminLoading, error: adminError, refetch: adminRefetch } = useAdminServers();
   const { data: adminNodes } = useAdminNodes();
+  const ownAccountId = useOwnAccountId();
 
   const nodesById = useMemo(() => new Map(adminNodes.map((n) => [n.id, n])), [adminNodes]);
   const adaptedAdminServers = useMemo(
@@ -41,14 +48,20 @@ export function DashboardPage() {
     [adminServers, nodesById],
   );
 
-  const viewingAll = showAllServers && hasApplicationApiKey;
   const servers = viewingAll ? adaptedAdminServers : ownServers.servers;
   const loading = viewingAll ? adminLoading : ownServers.loading;
   const error = viewingAll ? adminError : ownServers.error;
   const refetch = viewingAll ? adminRefetch : ownServers.refetch;
 
   const { lookup, error: lookupError } = useNodeLocationLookup();
-  const identifiers = useMemo(() => servers.map((s) => s.identifier), [servers]);
+  // In der Admin-Ansicht nur für die EIGENEN Server Live-Ressourcen abfragen - für
+  // fremde Server schlägt die Client-API-Anfrage ohnehin immer mit 403 fehl und
+  // würde nur unnötig Anfragen (und Rate-Limit-Last) erzeugen.
+  const identifiers = useMemo(() => {
+    if (!viewingAll) return servers.map((s) => s.identifier);
+    if (ownAccountId === null) return [];
+    return adminServers.filter((s) => s.user === ownAccountId).map((s) => s.identifier);
+  }, [servers, viewingAll, adminServers, ownAccountId]);
   const resourcesMap = useServerResourcesMap(identifiers, refreshInterval);
 
   useEffect(() => {
