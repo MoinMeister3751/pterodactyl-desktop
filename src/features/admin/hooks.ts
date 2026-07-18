@@ -7,6 +7,7 @@ import type {
   EggAttributes,
   LocationAttributes,
   NestAttributes,
+  NodeAllocationAttributes,
   NodeAttributes,
 } from "@/lib/types/application";
 
@@ -97,6 +98,36 @@ export function useAdminEggs(nestId: number | null): AdminListResult<EggAttribut
       setLoading(false);
     }
   }, [api, nestId]);
+
+  useEffect(() => {
+    void refetch();
+  }, [refetch]);
+
+  return { data, loading, error, refetch };
+}
+
+/** Lädt die Allokationen eines Nodes neu, sobald sich die Node-Auswahl ändert. */
+export function useAdminNodeAllocations(nodeId: number | null): AdminListResult<NodeAllocationAttributes> {
+  const api = useApplicationApi();
+  const [data, setData] = useState<NodeAllocationAttributes[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refetch = useCallback(async () => {
+    if (!api || nodeId === null) {
+      setData([]);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      setData(await api.listNodeAllocations(nodeId));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.userMessage : "Allokationen konnten nicht geladen werden.");
+    } finally {
+      setLoading(false);
+    }
+  }, [api, nodeId]);
 
   useEffect(() => {
     void refetch();

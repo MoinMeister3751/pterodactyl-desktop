@@ -140,6 +140,19 @@ export interface CreateServerPayload {
   environment: Record<string, string>;
   limits: { memory: number; swap: number; disk: number; io: number; cpu: number };
   feature_limits: { databases: number; allocations: number; backups: number };
-  deploy: { locations: number[]; dedicated_ip: boolean; port_range: string[] };
+  /** Entweder eine bereits existierende Node-Allokation (empfohlen, siehe NodeAllocationAttributes)... */
+  allocation?: { default: number };
+  /** ...oder Auto-Deploy, das NUR unter bereits freien, unzugewiesenen Allokationen im Standort sucht. */
+  deploy?: { locations: number[]; dedicated_ip: boolean; port_range: string[] };
   start_on_completion?: boolean;
+}
+
+/** Allokation eines konkreten Nodes (Application API), inkl. Zuweisungsstatus. */
+export interface NodeAllocationAttributes {
+  id: number;
+  ip: string;
+  ip_alias: string | null;
+  port: number;
+  notes: string | null;
+  assigned: boolean;
 }

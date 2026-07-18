@@ -23,6 +23,7 @@ import { ActivityPanel } from "@/features/activity/components/ActivityPanel";
 import { useClientApi } from "@/hooks/useApi";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { ApiError } from "@/lib/api/errors";
+import { cn } from "@/lib/utils/cn";
 import type { ServerAttributes } from "@/lib/types/pterodactyl";
 
 const TABS: TabItem[] = [
@@ -120,11 +121,15 @@ export function ServerDetailPage() {
         {activeTab === "overview" && (
           <OverviewPanel server={server} locationInfo={lookup?.get(server.node)} />
         )}
-        {activeTab === "console" && (
-          <div className="h-[calc(100vh-11rem)]">
-            <Console identifier={server.identifier} />
-          </div>
-        )}
+        {/*
+          Console bleibt IMMER gemountet (nur per CSS versteckt), statt bei
+          Tab-Wechsel entfernt zu werden. Vorher riss das Verlassen des Tabs die
+          WebSocket-Verbindung ab und der komplette Ausgabe-Puffer war weg,
+          sobald man zurückwechselte.
+        */}
+        <div className={cn("h-[calc(100vh-11rem)]", activeTab !== "console" && "hidden")}>
+          <Console identifier={server.identifier} />
+        </div>
         {activeTab === "files" && (
           <div className="h-[calc(100vh-11rem)]">
             <FileBrowser identifier={server.identifier} />

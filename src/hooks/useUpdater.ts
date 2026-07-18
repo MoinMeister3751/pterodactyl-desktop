@@ -1,5 +1,5 @@
-import { useCallback, useRef } from "react";
-import { check, type Update } from "@tauri-apps/plugin-updater";
+import { useCallback } from "react";
+import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { useUpdaterStore } from "@/store/useUpdaterStore";
 
@@ -7,20 +7,23 @@ import { useUpdaterStore } from "@/store/useUpdaterStore";
  * Kapselt den Tauri-Updater-Plugin-Workflow: prüfen -> herunterladen -> installieren
  * -> App neu starten. Updates werden über GitHub Releases (latest.json) bezogen,
  * siehe src-tauri/tauri.conf.json ("plugins.updater") und .github/workflows/release.yml.
+ *
+ * Das gefundene Update-Objekt liegt in useUpdaterStore (nicht in einem lokalen
+ * Ref), damit "Update installieren" auch dann funktioniert, wenn der Check von
+ * einer anderen Komponente ausgelöst wurde (z. B. stiller Check in App.tsx,
+ * Installieren-Klick in Settings oder im TopBar-Badge).
  */
 export function useUpdater() {
   const set = useUpdaterStore((s) => s.set);
-  const pendingUpdate = useRef<Update | null>(null);
 
   const checkForUpdates = useCallback(async (silent = false) => {
     set({ status: "checking", errorMessage: null });
     try {
       const update = await check();
       if (update) {
-        pendingUpdate.current = update;
-        set({ status: "available", version: update.version, notes: update.body ?? null });
+        set({ status: "available", version: update.version, notes: update.body ?? null, pendingUpdate: update });
       } else {
-        set({ status: silent ? "idle" : "up_to_date" });
+        set({ status: silent ? "idle" : "up_to_date", pendingUpdate: null });
       }
     } catch (error) {
       set({
@@ -31,8 +34,11 @@ export function useUpdater() {
   }, [set]);
 
   const installUpdate = useCallback(async () => {
-    const update = pendingUpdate.current;
-    if (!update) return;
+    const update = useUpdaterStore.getState().pendingUpdate;
+    if (!update) {
+      set({ status: "error", errorMessage: "Kein Update zum Installieren gefunden. Bitte erneut prüfen." });
+      return;
+    }
     set({ status: "downloading", progress: 0 });
     try {
       let downloaded = 0;

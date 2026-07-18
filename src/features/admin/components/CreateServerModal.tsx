@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
-import { useAdminNests, useAdminEggs, useAdminLocations } from "../hooks";
+import { useAdminNests, useAdminEggs, useAdminNodes, useAdminNodeAllocations } from "../hooks";
 import { useApplicationApi } from "@/hooks/useApi";
 import { useToast } from "@/hooks/useToast";
 import { ApiError } from "@/lib/api/errors";
@@ -24,7 +24,7 @@ export function CreateServerModal({ open, onClose, onCreated, users }: CreateSer
   const api = useApplicationApi();
   const toast = useToast();
   const { data: nests } = useAdminNests();
-  const { data: locations } = useAdminLocations();
+  const { data: nodes } = useAdminNodes();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -37,20 +37,27 @@ export function CreateServerModal({ open, onClose, onCreated, users }: CreateSer
   const [environment, setEnvironment] = useState<Record<string, string>>({});
   const [limits, setLimits] = useState(DEFAULT_LIMITS);
   const [featureLimits, setFeatureLimits] = useState(DEFAULT_FEATURE_LIMITS);
-  const [locationId, setLocationId] = useState<number | null>(null);
+  const [nodeId, setNodeId] = useState<number | null>(null);
+  const { data: allocations, refetch: refetchAllocations } = useAdminNodeAllocations(nodeId);
+  const [allocationId, setAllocationId] = useState<number | null>(null);
+  const [newAllocIp, setNewAllocIp] = useState("");
+  const [newAllocPort, setNewAllocPort] = useState("");
+  const [creatingAllocation, setCreatingAllocation] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selectedEgg = useMemo(() => eggs.find((e) => e.id === eggId) ?? null, [eggs, eggId]);
+  const freeAllocations = useMemo(() => allocations.filter((a) => !a.assigned), [allocations]);
+  const selectedNode = useMemo(() => nodes.find((n) => n.id === nodeId) ?? null, [nodes, nodeId]);
 
-  // Sinnvolle Defaults setzen, sobald Nest-Liste geladen ist bzw. sich die Auswahl ändert.
+  // Sinnvolle Defaults setzen, sobald Nest-/Node-/Nutzerliste geladen ist.
   useEffect(() => {
     if (!open) return;
     if (nestId === null && nests.length > 0) setNestId(nests[0].id);
     if (ownerId === null && users.length > 0) setOwnerId(users[0].id);
-    if (locationId === null && locations.length > 0) setLocationId(locations[0].id);
+    if (nodeId === null && nodes.length > 0) setNodeId(nodes[0].id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, nests, users, locations]);
+  }, [open, nests, users, nodes]);
 
   useEffect(() => {
     setEggId(eggs.length > 0 ? eggs[0].id : null);
@@ -64,17 +71,51 @@ export function CreateServerModal({ open, onClose, onCreated, users }: CreateSer
     setEnvironment(Object.fromEntries(vars.map((v) => [v.attributes.env_variable, v.attributes.default_value])));
   }, [selectedEgg]);
 
+  // Sobald sich die freien Allokationen des gewählten Nodes ändern (Node-Wechsel
+  // oder gerade neu angelegt), automatisch die erste freie vorauswählen.
+  useEffect(() => {
+    setAllocationId(freeAllocations[0]?.id ?? null);
+    setNewAllocIp((prev) => prev || selectedNode?.fqdn || "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freeAllocations, nodeId]);
+
   function reset() {
     setName("");
     setDescription("");
     setError(null);
     setLimits(DEFAULT_LIMITS);
     setFeatureLimits(DEFAULT_FEATURE_LIMITS);
+    setNewAllocPort("");
+  }
+
+  async function handleCreateAllocation() {
+    if (!api || !nodeId || !newAllocIp.trim() || !newAllocPort.trim()) {
+      toast.error("Allokation konnte nicht erstellt werden", "Bitte IP und Port angeben.");
+      return;
+    }
+    setCreatingAllocation(true);
+    try {
+      await api.createNodeAllocations(nodeId, newAllocIp.trim(), [newAllocPort.trim()]);
+      toast.success("Allokation angelegt", `${newAllocIp.trim()}:${newAllocPort.trim()}`);
+      setNewAllocPort("");
+      await refetchAllocations();
+    } catch (err) {
+      const message = err instanceof ApiError ? err.userMessage : "Allokation konnte nicht erstellt werden.";
+      toast.error("Allokation konnte nicht erstellt werden", message);
+    } finally {
+      setCreatingAllocation(false);
+    }
   }
 
   async function handleCreate() {
-    if (!api || !ownerId || !eggId || !locationId) {
-      const msg = "Bitte alle Pflichtfelder ausfüllen (Besitzer, Egg, Standort).";
+    if (!api || !ownerId || !eggId || !nodeId) {
+      const msg = "Bitte alle Pflichtfelder ausfüllen (Besitzer, Egg, Node).";
+      setError(msg);
+      toast.error("Server konnte nicht erstellt werden", msg);
+      return;
+    }
+    if (!allocationId) {
+      const msg = "Keine freie Allokation gewählt. Lege oben eine neue Allokation auf dem Node an.";
       setError(msg);
       toast.error("Server konnte nicht erstellt werden", msg);
       return;
@@ -104,7 +145,7 @@ export function CreateServerModal({ open, onClose, onCreated, users }: CreateSer
         environment,
         limits,
         feature_limits: featureLimits,
-        deploy: { locations: [locationId], dedicated_ip: false, port_range: [] },
+        allocation: { default: allocationId },
         start_on_completion: true,
       });
       toast.success("Server wird erstellt", server.name);
@@ -133,7 +174,7 @@ export function CreateServerModal({ open, onClose, onCreated, users }: CreateSer
         onClose();
       }}
       title="Server hinzufügen"
-      description="Erstellt einen neuen Server via Application API. Die Allokation wird automatisch aus dem gewählten Standort vergeben (Wings sucht einen freien Port)."
+      description="Erstellt einen neuen Server via Application API auf einer konkreten Node-Allokation (statt unzuverlässigem Auto-Deploy)."
       size="xl"
       footer={
         <div className="flex w-full items-center justify-between gap-3">
@@ -169,7 +210,7 @@ export function CreateServerModal({ open, onClose, onCreated, users }: CreateSer
           <Input value={description} onChange={(e) => setDescription(e.target.value)} />
         </Field>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <Field label="Nest">
             <Select value={nestId ?? ""} onChange={(e) => setNestId(Number(e.target.value))}>
               {nests.map((n) => (
@@ -188,15 +229,55 @@ export function CreateServerModal({ open, onClose, onCreated, users }: CreateSer
               ))}
             </Select>
           </Field>
-          <Field label="Standort (Deploy)">
-            <Select value={locationId ?? ""} onChange={(e) => setLocationId(Number(e.target.value))}>
-              {locations.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.short}
-                </option>
-              ))}
-            </Select>
-          </Field>
+        </div>
+
+        <div className="rounded-md border border-base-700 p-3">
+          <p className="mb-2 text-xs font-medium text-base-300">Node &amp; Allokation</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Node">
+              <Select value={nodeId ?? ""} onChange={(e) => setNodeId(Number(e.target.value))}>
+                {nodes.map((n) => (
+                  <option key={n.id} value={n.id}>
+                    {n.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label={`Freie Allokation (${freeAllocations.length} verfügbar)`}>
+              <Select
+                value={allocationId ?? ""}
+                onChange={(e) => setAllocationId(Number(e.target.value))}
+                disabled={freeAllocations.length === 0}
+              >
+                {freeAllocations.length === 0 && <option value="">Keine frei - unten anlegen</option>}
+                {freeAllocations.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.ip_alias ?? a.ip}:{a.port}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+
+          <div className="mt-3 flex items-end gap-2 border-t border-base-700 pt-3">
+            <Field label="Neue Allokation: IP">
+              <Input value={newAllocIp} onChange={(e) => setNewAllocIp(e.target.value)} className="w-40" />
+            </Field>
+            <Field label="Port">
+              <Input
+                value={newAllocPort}
+                onChange={(e) => setNewAllocPort(e.target.value)}
+                placeholder="z. B. 25566"
+                className="w-28"
+              />
+            </Field>
+            <Button size="sm" variant="outline" loading={creatingAllocation} onClick={() => void handleCreateAllocation()}>
+              Anlegen
+            </Button>
+          </div>
+          <p className="mt-1 text-[11px] text-base-500">
+            IP, an die Wings auf diesem Node gebunden ist (häufig die öffentliche Node-IP oder 0.0.0.0).
+          </p>
         </div>
 
         {selectedEgg && Object.keys(selectedEgg.docker_images ?? {}).length > 1 && (

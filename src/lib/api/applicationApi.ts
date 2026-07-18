@@ -8,6 +8,7 @@ import type {
   EggAttributes,
   LocationAttributes,
   NestAttributes,
+  NodeAllocationAttributes,
   NodeAttributes,
   NodeLocationLookup,
 } from "@/lib/types/application";
@@ -86,6 +87,30 @@ export class ApplicationApi {
       { query: { include: "variables" } },
     );
     return res.data.map((d) => d.attributes);
+  }
+
+  // --- Node-Allokationen (für Server-Erstellung ohne Auto-Deploy) ------------------
+
+  /**
+   * Alle Allokationen eines Nodes, inkl. bereits zugewiesener (attributes.assigned).
+   * Auto-Deploy über `deploy.locations` schlägt fehl ("No nodes satisfying the
+   * requirements..."), sobald kein Node im Standort noch eine FREIE, bereits
+   * angelegte Allokation hat - hierüber lässt sich gezielt eine neue anlegen.
+   */
+  async listNodeAllocations(nodeId: number): Promise<NodeAllocationAttributes[]> {
+    const res = await this.http.get<ApiListResponse<"allocation", NodeAllocationAttributes>>(
+      `/api/application/nodes/${nodeId}/allocations`,
+      { query: { per_page: 200 } },
+    );
+    return res.data.map((d) => d.attributes);
+  }
+
+  async createNodeAllocations(nodeId: number, ip: string, ports: string[]): Promise<void> {
+    await this.http.post<void>(
+      `/api/application/nodes/${nodeId}/allocations`,
+      { ip, ports },
+      { responseType: "none" },
+    );
   }
 
   // --- Serververwaltung ----------------------------------------------------------
