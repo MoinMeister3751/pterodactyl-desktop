@@ -16,6 +16,9 @@ function classifyOutput(text: string): ConsoleLineKind {
   return "output";
 }
 
+/** Typische Wings/Minecraft-Ausgabe, wenn der Server wegen nicht akzeptierter EULA stoppt. */
+const EULA_PATTERN = /go to eula\.txt|you need to agree to the eula|eula=false to eula=true/i;
+
 function makeLine(kind: ConsoleLineKind, text: string): ConsoleLine {
   return { id: crypto.randomUUID(), kind, text, timestamp: Date.now() };
 }
@@ -37,6 +40,7 @@ export function useConsoleSocket(identifier: string | null) {
   const [lines, setLines] = useState<ConsoleLine[]>([]);
   const [connectionState, setConnectionState] = useState<ConsoleConnectionState>("idle");
   const [powerState, setPowerState] = useState<ServerPowerState | null>(null);
+  const [eulaBlocked, setEulaBlocked] = useState(false);
 
   const socketRef = useRef<TauriWebSocket | null>(null);
   const isOpenRef = useRef(false);
@@ -106,7 +110,9 @@ export function useConsoleSocket(identifier: string | null) {
           break;
         case "console output":
           for (const raw of message.args ?? []) {
-            appendLine(classifyOutput(raw), stripAnsi(raw));
+            const clean = stripAnsi(raw);
+            appendLine(classifyOutput(raw), clean);
+            if (EULA_PATTERN.test(clean)) setEulaBlocked(true);
           }
           break;
         case "install output":
@@ -180,7 +186,18 @@ export function useConsoleSocket(identifier: string | null) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [identifier, api, panelUrl]);
 
-  return { lines, connectionState, powerState, sendCommand, clear, reconnect: connect };
+  const dismissEula = useCallback(() => setEulaBlocked(false), []);
+
+  return {
+    lines,
+    connectionState,
+    powerState,
+    sendCommand,
+    clear,
+    reconnect: connect,
+    eulaBlocked,
+    dismissEula,
+  };
 }
 
 function stripAnsi(text: string): string {

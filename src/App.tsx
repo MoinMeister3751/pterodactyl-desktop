@@ -11,12 +11,19 @@ import { ConfirmDialogHost } from "@/components/ui/ConfirmDialog";
 import { useProfileStore } from "@/store/useProfileStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { useUpdater } from "@/hooks/useUpdater";
+import { useDiscordPresence } from "@/hooks/useDiscordPresence";
 import { Spinner } from "@/components/ui/Spinner";
 
 function RequireProfile({ children }: { children: ReactNode }) {
   const activeProfileId = useProfileStore((s) => s.activeProfileId);
   if (!activeProfileId) return <Navigate to="/profiles" replace />;
   return <>{children}</>;
+}
+
+/** Muss innerhalb von <HashRouter> gerendert werden (nutzt useLocation). */
+function DiscordPresenceBridge() {
+  useDiscordPresence();
+  return null;
 }
 
 export function App() {
@@ -61,6 +68,7 @@ export function App() {
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <DiscordPresenceBridge />
       <ToastHost />
       <ConfirmDialogHost />
     </HashRouter>

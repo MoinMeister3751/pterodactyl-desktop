@@ -1,10 +1,10 @@
 export const APP_NAME = "Pterodactyl Desktop";
 
 export const DEFAULT_REFRESH_INTERVAL_SECONDS = Number(
-  import.meta.env.VITE_DEFAULT_REFRESH_INTERVAL ?? 10,
+  import.meta.env.VITE_DEFAULT_REFRESH_INTERVAL ?? 1,
 );
 
-export const REFRESH_INTERVAL_OPTIONS_SECONDS = [5, 10, 15, 30, 60] as const;
+export const REFRESH_INTERVAL_OPTIONS_SECONDS = [1, 2, 5, 10, 15, 30, 60] as const;
 
 export const ENABLE_APPLICATION_API_DEFAULT =
   (import.meta.env.VITE_ENABLE_APPLICATION_API ?? "true") === "true";

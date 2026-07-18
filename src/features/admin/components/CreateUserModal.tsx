@@ -57,7 +57,9 @@ export function CreateUserModal({ open, onClose, onCreated }: CreateUserModalPro
       onCreated();
       onClose();
     } catch (err) {
-      setError(err instanceof ApiError ? err.userMessage : "Nutzer konnte nicht erstellt werden.");
+      const message = err instanceof ApiError ? err.userMessage : "Nutzer konnte nicht erstellt werden.";
+      setError(message);
+      toast.error("Nutzer konnte nicht erstellt werden", message);
     } finally {
       setSaving(false);
     }

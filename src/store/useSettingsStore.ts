@@ -9,6 +9,7 @@ interface AppSettings {
   refreshIntervalSeconds: number;
   debugMode: boolean;
   persistLogsLocally: boolean;
+  discordRichPresence: boolean;
 }
 
 interface SettingsState extends AppSettings {
@@ -18,6 +19,7 @@ interface SettingsState extends AppSettings {
   setRefreshInterval: (seconds: number) => Promise<void>;
   setDebugMode: (enabled: boolean) => Promise<void>;
   setPersistLogsLocally: (enabled: boolean) => Promise<void>;
+  setDiscordRichPresence: (enabled: boolean) => Promise<void>;
 }
 
 const DEFAULTS: AppSettings = {
@@ -25,6 +27,7 @@ const DEFAULTS: AppSettings = {
   refreshIntervalSeconds: DEFAULT_REFRESH_INTERVAL_SECONDS,
   debugMode: false,
   persistLogsLocally: false,
+  discordRichPresence: false,
 };
 
 const SETTINGS_KEY = "settings";
@@ -66,11 +69,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ persistLogsLocally });
     await persist(extractSettings(get()));
   },
+
+  setDiscordRichPresence: async (discordRichPresence) => {
+    set({ discordRichPresence });
+    await persist(extractSettings(get()));
+  },
 }));
 
 function extractSettings(state: SettingsState): AppSettings {
-  const { theme, refreshIntervalSeconds, debugMode, persistLogsLocally } = state;
-  return { theme, refreshIntervalSeconds, debugMode, persistLogsLocally };
+  const { theme, refreshIntervalSeconds, debugMode, persistLogsLocally, discordRichPresence } = state;
+  return { theme, refreshIntervalSeconds, debugMode, persistLogsLocally, discordRichPresence };
 }
 
 function applyThemeClass(theme: ThemePreference) {

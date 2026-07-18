@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -13,6 +14,14 @@ interface ProfileCardProps {
 }
 
 export function ProfileCard({ profile, isActive, onSelect, onEdit, onDelete }: ProfileCardProps) {
+  // Erzwingt jede Sekunde ein Re-Render, damit "Zuletzt verwendet: vor X Sekunden"
+  // live mitzählt statt nur beim nächsten Mount neu berechnet zu werden.
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-start justify-between">

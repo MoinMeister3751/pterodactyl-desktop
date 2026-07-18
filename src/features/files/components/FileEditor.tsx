@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
@@ -24,6 +24,56 @@ export function FileEditor({ identifier, filePath, onClose }: FileEditorProps) {
 
   const isDirty = content !== originalContent;
   const fileName = filePath?.split("/").pop() ?? "";
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Tab fügt im Editor eine Einrückung ein statt (wie im Browser üblich) den Fokus auf das
+  // nächste Element zu verschieben - unterstützt auch mehrzeiliges Ein-/Ausrücken bei Auswahl.
+  function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key !== "Tab") return;
+    e.preventDefault();
+    const textarea = e.currentTarget;
+    const { selectionStart, selectionEnd, value } = textarea;
+    const selectionSpansMultipleLines = value.slice(selectionStart, selectionEnd).includes("\n");
+
+    if (!selectionSpansMultipleLines && !e.shiftKey) {
+      const next = `${value.slice(0, selectionStart)}\t${value.slice(selectionEnd)}`;
+      setContent(next);
+      requestAnimationFrame(() => {
+        textarea.selectionStart = textarea.selectionEnd = selectionStart + 1;
+      });
+      return;
+    }
+
+    const lineStart = value.lastIndexOf("\n", selectionStart - 1) + 1;
+    const affected = value.slice(lineStart, selectionEnd);
+    const lines = affected.split("\n");
+    let firstLineDelta = 0;
+    const transformed = lines
+      .map((line, i) => {
+        if (e.shiftKey) {
+          if (line.startsWith("\t")) {
+            if (i === 0) firstLineDelta = -1;
+            return line.slice(1);
+          }
+          const spaceMatch = line.match(/^ {1,4}/);
+          if (spaceMatch) {
+            if (i === 0) firstLineDelta = -spaceMatch[0].length;
+            return line.slice(spaceMatch[0].length);
+          }
+          return line;
+        }
+        if (i === 0) firstLineDelta = 1;
+        return `\t${line}`;
+      })
+      .join("\n");
+
+    const next = `${value.slice(0, lineStart)}${transformed}${value.slice(selectionEnd)}`;
+    setContent(next);
+    requestAnimationFrame(() => {
+      textarea.selectionStart = Math.max(lineStart, selectionStart + firstLineDelta);
+      textarea.selectionEnd = lineStart + transformed.length;
+    });
+  }
 
   useEffect(() => {
     if (!filePath || !api) return;
@@ -84,8 +134,10 @@ export function FileEditor({ identifier, filePath, onClose }: FileEditorProps) {
         <p className="text-sm text-danger">{error}</p>
       ) : (
         <Textarea
+          ref={textareaRef}
           value={content}
           onChange={(e) => setContent(e.target.value)}
+          onKeyDown={handleKeyDown}
           className="h-96"
         />
       )}

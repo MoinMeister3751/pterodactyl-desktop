@@ -12,9 +12,13 @@ import { deriveDisplayStatus } from "@/features/servers/statusUtils";
 import { useServerResources, useNodeLocationLookup } from "@/features/servers/hooks";
 import { Console } from "@/features/console/components/Console";
 import { FileBrowser } from "@/features/files/components/FileBrowser";
+import { DatabasesPanel } from "@/features/databases/components/DatabasesPanel";
+import { SchedulesPanel } from "@/features/schedules/components/SchedulesPanel";
+import { SubusersPanel } from "@/features/subusers/components/SubusersPanel";
 import { BackupList } from "@/features/backups/components/BackupList";
-import { StartupPanel } from "@/features/startup/components/StartupPanel";
 import { NetworkPanel } from "@/features/network/components/NetworkPanel";
+import { StartupPanel } from "@/features/startup/components/StartupPanel";
+import { ServerSettingsPanel } from "@/features/settings/components/ServerSettingsPanel";
 import { ActivityPanel } from "@/features/activity/components/ActivityPanel";
 import { useClientApi } from "@/hooks/useApi";
 import { useSettingsStore } from "@/store/useSettingsStore";
@@ -25,9 +29,13 @@ const TABS: TabItem[] = [
   { key: "overview", label: "Overview" },
   { key: "console", label: "Console" },
   { key: "files", label: "Files" },
+  { key: "databases", label: "Database" },
+  { key: "schedules", label: "Schedules" },
+  { key: "users", label: "Users" },
   { key: "backups", label: "Backups" },
-  { key: "startup", label: "Startup" },
   { key: "network", label: "Network" },
+  { key: "startup", label: "Startup" },
+  { key: "settings", label: "Settings" },
   { key: "activity", label: "Activity" },
 ];
 
@@ -63,6 +71,15 @@ export function ServerDetailPage() {
     void loadServer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, identifier]);
+
+  // Serverobjekt (Status, Limits, Beschreibung, ...) im Hintergrund aktuell halten,
+  // ohne dabei erneut den Lade-Skeleton zu zeigen.
+  useEffect(() => {
+    if (refreshInterval <= 0) return;
+    const id = setInterval(() => void loadServer(), refreshInterval * 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api, identifier, refreshInterval]);
 
   if (!identifier) return null;
 
@@ -113,9 +130,19 @@ export function ServerDetailPage() {
             <FileBrowser identifier={server.identifier} />
           </div>
         )}
-        {activeTab === "backups" && <BackupList identifier={server.identifier} />}
+        {activeTab === "databases" && (
+          <DatabasesPanel identifier={server.identifier} databaseLimit={server.feature_limits.databases} />
+        )}
+        {activeTab === "schedules" && <SchedulesPanel identifier={server.identifier} />}
+        {activeTab === "users" && <SubusersPanel identifier={server.identifier} />}
+        {activeTab === "backups" && (
+          <BackupList identifier={server.identifier} backupLimit={server.feature_limits.backups} />
+        )}
+        {activeTab === "network" && (
+          <NetworkPanel identifier={server.identifier} allocationLimit={server.feature_limits.allocations} />
+        )}
         {activeTab === "startup" && <StartupPanel identifier={server.identifier} />}
-        {activeTab === "network" && <NetworkPanel identifier={server.identifier} />}
+        {activeTab === "settings" && <ServerSettingsPanel server={server} onRenamed={loadServer} />}
         {activeTab === "activity" && <ActivityPanel identifier={server.identifier} />}
       </main>
     </>

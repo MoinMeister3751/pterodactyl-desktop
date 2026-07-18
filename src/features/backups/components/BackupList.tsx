@@ -14,7 +14,13 @@ import { formatBytes, formatDateTime } from "@/lib/utils/format";
 import { downloadUrlToDisk } from "@/lib/api/downloadFile";
 import type { BackupAttributes } from "@/lib/types/pterodactyl";
 
-export function BackupList({ identifier }: { identifier: string }) {
+interface BackupListProps {
+  identifier: string;
+  /** feature_limits.backups des Servers - 0 bedeutet "Backups deaktiviert". */
+  backupLimit: number;
+}
+
+export function BackupList({ identifier, backupLimit }: BackupListProps) {
   const { backups, loading, error, refetch } = useBackups(identifier);
   const api = useClientApi();
   const toast = useToast();
@@ -23,6 +29,7 @@ export function BackupList({ identifier }: { identifier: string }) {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [backupName, setBackupName] = useState("");
   const [busyUuid, setBusyUuid] = useState<string | null>(null);
+  const atLimit = backupLimit > 0 && backups.length >= backupLimit;
 
   async function handleCreate() {
     if (!api) return;
@@ -92,6 +99,27 @@ export function BackupList({ identifier }: { identifier: string }) {
     }
   }
 
+  async function handleRestore(backup: BackupAttributes) {
+    if (!api) return;
+    const confirmed = await confirm({
+      title: `Backup "${backup.name}" wiederherstellen?`,
+      description:
+        "Der Server wird dafür automatisch gestoppt und der aktuelle Dateistand mit dem Inhalt dieses Backups überschrieben. Nicht gesicherte Änderungen seit diesem Backup gehen verloren.",
+      confirmLabel: "Wiederherstellen",
+      destructive: true,
+    });
+    if (!confirmed) return;
+    setBusyUuid(backup.uuid);
+    try {
+      await api.restoreBackup(identifier, backup.uuid);
+      toast.success("Wiederherstellung gestartet", "Der Server wird gestoppt und das Backup eingespielt.");
+    } catch (err) {
+      toast.error("Wiederherstellung fehlgeschlagen", err);
+    } finally {
+      setBusyUuid(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="grid gap-3">
@@ -108,11 +136,24 @@ export function BackupList({ identifier }: { identifier: string }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-base-400">{backups.length} Backup(s)</p>
-        <Button size="sm" variant="primary" onClick={() => setCreateModalOpen(true)}>
+        <p className="text-xs text-base-400">
+          {backups.length} von {backupLimit > 0 ? backupLimit : "∞"} Backups verwendet
+        </p>
+        <Button
+          size="sm"
+          variant="primary"
+          onClick={() => setCreateModalOpen(true)}
+          disabled={atLimit}
+          title={atLimit ? "Backup-Limit erreicht" : undefined}
+        >
           + Backup erstellen
         </Button>
       </div>
+      {atLimit && (
+        <p className="text-xs text-warning">
+          Backup-Limit erreicht ({backupLimit}/{backupLimit}). Lösche ein bestehendes Backup, um Platz zu schaffen.
+        </p>
+      )}
 
       {backups.length === 0 ? (
         <EmptyState title="Keine Backups vorhanden" description="Erstelle dein erstes Backup dieses Servers." />
@@ -153,6 +194,14 @@ export function BackupList({ identifier }: { identifier: string }) {
                   onClick={() => void handleDownload(backup)}
                 >
                   Download
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={!backup.completed_at || !backup.is_successful || busyUuid === backup.uuid}
+                  onClick={() => void handleRestore(backup)}
+                >
+                  Wiederherstellen
                 </Button>
                 <Button size="sm" variant="ghost" disabled={busyUuid === backup.uuid} onClick={() => void handleToggleLock(backup)}>
                   {backup.is_locked ? "Entsperren" : "Sperren"}

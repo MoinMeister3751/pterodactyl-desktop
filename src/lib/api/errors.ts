@@ -29,17 +29,20 @@ export class ApiError extends Error {
     this.code = code;
   }
 
-  /** Kurzer, für Endnutzer verständlicher Text ohne technische Details. */
+  /** Kurzer, für Endnutzer verständlicher Text - hängt bei Bedarf die technische Detailmeldung an. */
   get userMessage(): string {
+    const withDetail = (prefix: string) =>
+      this.message && this.message !== prefix ? `${prefix} (${this.message})` : prefix;
+
     switch (this.kind) {
       case "network":
-        return "Keine Verbindung zum Panel möglich. Bitte URL und Netzwerkverbindung prüfen.";
+        return withDetail("Keine Verbindung zum Panel möglich. Bitte URL und Netzwerkverbindung prüfen.");
       case "timeout":
         return "Zeitüberschreitung bei der Anfrage an das Panel.";
       case "unauthorized":
         return "Anmeldung fehlgeschlagen. Bitte den API-Key im Profil prüfen.";
       case "forbidden":
-        return "Keine Berechtigung für diese Aktion. Prüfe die API-Key-Berechtigungen.";
+        return withDetail("Keine Berechtigung für diese Aktion. Prüfe die API-Key-Berechtigungen.");
       case "not_found":
         return "Ressource wurde auf dem Panel nicht gefunden.";
       case "validation":
@@ -47,7 +50,7 @@ export class ApiError extends Error {
       case "rate_limited":
         return "Zu viele Anfragen. Bitte kurz warten und erneut versuchen.";
       case "server_error":
-        return "Das Panel meldet einen internen Fehler.";
+        return withDetail("Das Panel meldet einen internen Fehler.");
       default:
         return this.message || "Unbekannter Fehler.";
     }

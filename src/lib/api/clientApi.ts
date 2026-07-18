@@ -1,15 +1,18 @@
 import { PterodactylHttpClient } from "./httpClient";
-import type { ApiListResponse, ApiObject } from "@/lib/types/api";
+import type { ApiListResponse, ApiObject, PaginationMeta } from "@/lib/types/api";
 import type {
   AccountAttributes,
   ActivityLogAttributes,
   AllocationAttributes,
   BackupAttributes,
+  DatabaseAttributes,
   EggVariableAttributes,
   FileObjectAttributes,
+  ScheduleAttributes,
   ServerAttributes,
   ServerResourcesAttributes,
   StartupMeta,
+  SubuserAttributes,
   WebsocketCredentials,
 } from "@/lib/types/pterodactyl";
 
@@ -180,6 +183,15 @@ export class ClientApi {
     return res.attributes;
   }
 
+  /** Spielt ein Backup zurück. Der Server wird dazu von Wings automatisch gestoppt. */
+  async restoreBackup(identifier: string, backupUuid: string, truncateDirectory = false): Promise<void> {
+    await this.http.post<void>(
+      `/api/client/servers/${identifier}/backups/${backupUuid}/restore`,
+      { truncate: truncateDirectory },
+      { responseType: "none" },
+    );
+  }
+
   // --- Startup / Variablen -------------------------------------------------
 
   async getStartup(
@@ -225,6 +237,22 @@ export class ClientApi {
     return res.data.map((d) => d.attributes);
   }
 
+  /** Weist dem Server automatisch eine neue freie Allokation zu (Panel wählt Port). */
+  async createAllocation(identifier: string): Promise<AllocationAttributes> {
+    const res = await this.http.post<ApiObject<"allocation", AllocationAttributes>>(
+      `/api/client/servers/${identifier}/network/allocations`,
+    );
+    return res.attributes;
+  }
+
+  async deleteAllocation(identifier: string, allocationId: number): Promise<void> {
+    await this.http.delete<void>(
+      `/api/client/servers/${identifier}/network/allocations/${allocationId}`,
+      undefined,
+      { responseType: "none" },
+    );
+  }
+
   async setPrimaryAllocation(identifier: string, allocationId: number): Promise<void> {
     await this.http.post<void>(
       `/api/client/servers/${identifier}/network/allocations/${allocationId}/primary`,
@@ -247,11 +275,175 @@ export class ClientApi {
 
   // --- Activity ----------------------------------------------------------------
 
-  async listServerActivity(identifier: string, page = 1): Promise<ActivityLogAttributes[]> {
+  async listServerActivity(
+    identifier: string,
+    page = 1,
+  ): Promise<{ entries: ActivityLogAttributes[]; pagination?: PaginationMeta }> {
     const res = await this.http.get<ApiListResponse<"activity_log", ActivityLogAttributes>>(
       `/api/client/servers/${identifier}/activity`,
       { query: { page } },
     );
+    return { entries: res.data.map((d) => d.attributes), pagination: res.meta?.pagination };
+  }
+
+  // --- Datenbanken -----------------------------------------------------------------
+
+  async listDatabases(identifier: string): Promise<DatabaseAttributes[]> {
+    const res = await this.http.get<ApiListResponse<"server_database", DatabaseAttributes>>(
+      `/api/client/servers/${identifier}/databases`,
+      { query: { include: "password" } },
+    );
     return res.data.map((d) => d.attributes);
+  }
+
+  async createDatabase(identifier: string, name: string, remote = "%"): Promise<DatabaseAttributes> {
+    const res = await this.http.post<ApiObject<"server_database", DatabaseAttributes>>(
+      `/api/client/servers/${identifier}/databases`,
+      { database: name, remote },
+    );
+    return res.attributes;
+  }
+
+  async rotateDatabasePassword(identifier: string, databaseId: string): Promise<DatabaseAttributes> {
+    const res = await this.http.post<ApiObject<"server_database", DatabaseAttributes>>(
+      `/api/client/servers/${identifier}/databases/${databaseId}/rotate-password`,
+    );
+    return res.attributes;
+  }
+
+  async deleteDatabase(identifier: string, databaseId: string): Promise<void> {
+    await this.http.delete<void>(
+      `/api/client/servers/${identifier}/databases/${databaseId}`,
+      undefined,
+      { responseType: "none" },
+    );
+  }
+
+  // --- Zeitpläne (Schedules) ---------------------------------------------------------
+
+  async listSchedules(identifier: string): Promise<ScheduleAttributes[]> {
+    const res = await this.http.get<ApiListResponse<"server_schedule", ScheduleAttributes>>(
+      `/api/client/servers/${identifier}/schedules`,
+      { query: { include: "tasks" } },
+    );
+    return res.data.map((d) => d.attributes);
+  }
+
+  async createSchedule(
+    identifier: string,
+    payload: {
+      name: string;
+      minute: string;
+      hour: string;
+      day_of_month: string;
+      day_of_week: string;
+      is_active: boolean;
+      only_when_online: boolean;
+    },
+  ): Promise<ScheduleAttributes> {
+    const res = await this.http.post<ApiObject<"server_schedule", ScheduleAttributes>>(
+      `/api/client/servers/${identifier}/schedules`,
+      payload,
+    );
+    return res.attributes;
+  }
+
+  async updateSchedule(
+    identifier: string,
+    scheduleId: number,
+    payload: {
+      name: string;
+      minute: string;
+      hour: string;
+      day_of_month: string;
+      day_of_week: string;
+      is_active: boolean;
+      only_when_online: boolean;
+    },
+  ): Promise<ScheduleAttributes> {
+    const res = await this.http.post<ApiObject<"server_schedule", ScheduleAttributes>>(
+      `/api/client/servers/${identifier}/schedules/${scheduleId}`,
+      payload,
+    );
+    return res.attributes;
+  }
+
+  async deleteSchedule(identifier: string, scheduleId: number): Promise<void> {
+    await this.http.delete<void>(
+      `/api/client/servers/${identifier}/schedules/${scheduleId}`,
+      undefined,
+      { responseType: "none" },
+    );
+  }
+
+  async createScheduleTask(
+    identifier: string,
+    scheduleId: number,
+    payload: { action: "command" | "power" | "backup"; payload: string; time_offset: number; continue_on_failure?: boolean },
+  ): Promise<void> {
+    await this.http.post<void>(
+      `/api/client/servers/${identifier}/schedules/${scheduleId}/tasks`,
+      payload,
+      { responseType: "none" },
+    );
+  }
+
+  async deleteScheduleTask(identifier: string, scheduleId: number, taskId: number): Promise<void> {
+    await this.http.delete<void>(
+      `/api/client/servers/${identifier}/schedules/${scheduleId}/tasks/${taskId}`,
+      undefined,
+      { responseType: "none" },
+    );
+  }
+
+  // --- Subuser (Server-Nutzerverwaltung) ------------------------------------------
+
+  async listSubusers(identifier: string): Promise<SubuserAttributes[]> {
+    const res = await this.http.get<ApiListResponse<"server_subuser", SubuserAttributes>>(
+      `/api/client/servers/${identifier}/users`,
+    );
+    return res.data.map((d) => d.attributes);
+  }
+
+  async addSubuser(identifier: string, email: string, permissions: string[]): Promise<SubuserAttributes> {
+    const res = await this.http.post<ApiObject<"server_subuser", SubuserAttributes>>(
+      `/api/client/servers/${identifier}/users`,
+      { email, permissions },
+    );
+    return res.attributes;
+  }
+
+  async updateSubuserPermissions(identifier: string, uuid: string, permissions: string[]): Promise<SubuserAttributes> {
+    const res = await this.http.post<ApiObject<"server_subuser", SubuserAttributes>>(
+      `/api/client/servers/${identifier}/users/${uuid}`,
+      { permissions },
+    );
+    return res.attributes;
+  }
+
+  async removeSubuser(identifier: string, uuid: string): Promise<void> {
+    await this.http.delete<void>(
+      `/api/client/servers/${identifier}/users/${uuid}`,
+      undefined,
+      { responseType: "none" },
+    );
+  }
+
+  // --- Server-Einstellungen ----------------------------------------------------------
+
+  async renameServer(identifier: string, name: string, description?: string): Promise<void> {
+    await this.http.post<void>(
+      `/api/client/servers/${identifier}/settings/rename`,
+      { name, description: description ?? "" },
+      { responseType: "none" },
+    );
+  }
+
+  async reinstallServer(identifier: string): Promise<void> {
+    await this.http.post<void>(
+      `/api/client/servers/${identifier}/settings/reinstall`,
+      undefined,
+      { responseType: "none" },
+    );
   }
 }

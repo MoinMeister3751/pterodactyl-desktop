@@ -24,6 +24,8 @@ export function SettingsPage() {
   const setRefreshInterval = useSettingsStore((s) => s.setRefreshInterval);
   const debugMode = useSettingsStore((s) => s.debugMode);
   const setDebugMode = useSettingsStore((s) => s.setDebugMode);
+  const discordRichPresence = useSettingsStore((s) => s.discordRichPresence);
+  const setDiscordRichPresence = useSettingsStore((s) => s.setDiscordRichPresence);
 
   const logs = useDebugLogStore((s) => s.entries);
   const clearLogs = useDebugLogStore((s) => s.clear);
@@ -108,6 +110,21 @@ export function SettingsPage() {
                   </option>
                 ))}
               </Select>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Discord</CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-base-100">Discord Rich Presence</p>
+                <p className="text-xs text-base-400">
+                  Zeigt in Discord an, dass du Pterodactyl Desktop nutzt. Discord muss lokal laufen.
+                </p>
+              </div>
+              <Switch checked={discordRichPresence} onChange={(v) => void setDiscordRichPresence(v)} />
             </CardContent>
           </Card>
 

@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { useConsoleSocket } from "../useConsoleSocket";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/hooks/useToast";
+import { useClientApi } from "@/hooks/useApi";
 import { cn } from "@/lib/utils/cn";
 import type { ConsoleLineKind } from "@/lib/types/pterodactyl";
 
@@ -24,13 +26,31 @@ const CONNECTION_LABEL: Record<string, { label: string; tone: "success" | "warni
 };
 
 export function Console({ identifier }: { identifier: string }) {
-  const { lines, connectionState, sendCommand, clear, reconnect } = useConsoleSocket(identifier);
+  const { lines, connectionState, sendCommand, clear, reconnect, eulaBlocked, dismissEula } =
+    useConsoleSocket(identifier);
   const [command, setCommand] = useState("");
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number | null>(null);
   const [autoScroll, setAutoScroll] = useState(true);
+  const [acceptingEula, setAcceptingEula] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
+  const clientApi = useClientApi();
+
+  async function handleAcceptEula() {
+    if (!clientApi) return;
+    setAcceptingEula(true);
+    try {
+      await clientApi.writeFile(identifier, "eula.txt", "eula=true\n");
+      await clientApi.sendPowerSignal(identifier, "start");
+      toast.success("EULA akzeptiert", "Server wird gestartet.");
+      dismissEula();
+    } catch (err) {
+      toast.error("EULA konnte nicht akzeptiert werden", err);
+    } finally {
+      setAcceptingEula(false);
+    }
+  }
 
   useEffect(() => {
     if (!autoScroll || !scrollRef.current) return;
@@ -140,6 +160,30 @@ export function Console({ identifier }: { identifier: string }) {
           Senden
         </Button>
       </form>
+
+      <Modal
+        open={eulaBlocked}
+        onClose={dismissEula}
+        title="Minecraft EULA akzeptieren?"
+        description="Der Server ist gestoppt, weil die Minecraft-EULA (eula.txt) noch nicht akzeptiert wurde."
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={dismissEula}>
+              Später
+            </Button>
+            <Button variant="primary" loading={acceptingEula} onClick={() => void handleAcceptEula()}>
+              Akzeptieren &amp; Starten
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-base-300">
+          Mit Klick auf "Akzeptieren & Starten" bestätigst du die{" "}
+          <span className="text-base-100">Minecraft End User License Agreement</span> (eula=true wird in eula.txt
+          geschrieben) und der Server wird neu gestartet.
+        </p>
+      </Modal>
     </div>
   );
 }

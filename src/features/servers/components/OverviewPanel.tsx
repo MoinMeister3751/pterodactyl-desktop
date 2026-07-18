@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { ResourceGauge } from "./ResourceGauge";
 import { useServerResources } from "../hooks";
 import { useSettingsStore } from "@/store/useSettingsStore";
+import { useToast } from "@/hooks/useToast";
 import { formatBytes, formatUptime, cpuPercentOfLimit, clampPercent } from "@/lib/utils/format";
 import type { ServerAttributes } from "@/lib/types/pterodactyl";
 import type { NodeLocationLookup } from "@/lib/types/application";
@@ -14,6 +15,19 @@ interface OverviewPanelProps {
 export function OverviewPanel({ server, locationInfo }: OverviewPanelProps) {
   const refreshInterval = useSettingsStore((s) => s.refreshIntervalSeconds);
   const { resources, error } = useServerResources(server.identifier, refreshInterval);
+  const toast = useToast();
+
+  const allocations = server.relationships?.allocations?.data ?? [];
+  const primaryAllocation = allocations.find((a) => a.attributes.is_default)?.attributes ?? allocations[0]?.attributes;
+  const primaryAddress = primaryAllocation
+    ? `${primaryAllocation.ip_alias ?? primaryAllocation.ip}:${primaryAllocation.port}`
+    : null;
+
+  async function handleCopyAddress() {
+    if (!primaryAddress) return;
+    await navigator.clipboard.writeText(primaryAddress);
+    toast.success("Adresse kopiert", primaryAddress);
+  }
 
   const memoryLimitBytes = server.limits.memory * 1024 * 1024;
   const diskLimitBytes = server.limits.disk * 1024 * 1024;
@@ -68,6 +82,26 @@ export function OverviewPanel({ server, locationInfo }: OverviewPanelProps) {
           <CardTitle>Server-Info</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-2 text-xs">
+          {primaryAddress && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-base-500">Server-Adresse</span>
+              <button
+                onClick={() => void handleCopyAddress()}
+                title="Klicken zum Kopieren"
+                className="flex items-center gap-1.5 truncate rounded px-1.5 py-0.5 font-mono text-right text-base-200 hover:bg-base-800 hover:text-accent-300"
+              >
+                {primaryAddress}
+                <svg className="h-3 w-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
           <InfoRow label="Identifier" value={server.identifier} mono />
           <InfoRow label="UUID" value={server.uuid} mono />
           <InfoRow label="Node" value={server.node} />

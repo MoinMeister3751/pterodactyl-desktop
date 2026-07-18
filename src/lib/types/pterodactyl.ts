@@ -196,3 +196,67 @@ export interface WingsSocketMessage {
     | string;
   args?: string[];
 }
+
+// --- Datenbanken -----------------------------------------------------------------
+
+export interface DatabaseAttributes {
+  id: string;
+  host: { address: string; port: number };
+  name: string;
+  username: string;
+  connections_from: string;
+  max_connections: number;
+  relationships?: {
+    password?: { object: "database_password"; attributes: { password: string } };
+  };
+}
+
+// --- Zeitpläne (Schedules) ---------------------------------------------------------
+
+export interface ScheduleTaskAttributes {
+  id: number;
+  sequence_id: number;
+  action: "command" | "power" | "backup";
+  payload: string;
+  time_offset: number;
+  is_queued: boolean;
+  continue_on_failure: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ScheduleAttributes {
+  id: number;
+  name: string;
+  cron: {
+    day_of_week: string;
+    day_of_month: string;
+    hour: string;
+    minute: string;
+  };
+  is_active: boolean;
+  is_processing: boolean;
+  only_when_online: boolean;
+  last_run_at: string | null;
+  next_run_at: string | null;
+  created_at: string;
+  updated_at: string;
+  relationships?: {
+    tasks?: {
+      object: "list";
+      data: Array<{ object: "schedule_task"; attributes: ScheduleTaskAttributes }>;
+    };
+  };
+}
+
+// --- Subuser (Server-Nutzerverwaltung) ------------------------------------------
+
+export interface SubuserAttributes {
+  uuid: string;
+  username: string;
+  email: string;
+  image: string;
+  "2fa_enabled": boolean;
+  created_at: string;
+  permissions: string[];
+}

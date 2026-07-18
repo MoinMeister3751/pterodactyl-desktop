@@ -8,6 +8,7 @@ import { NodesTable } from "@/features/admin/components/NodesTable";
 import { LocationsTable } from "@/features/admin/components/LocationsTable";
 import { UsersTable } from "@/features/admin/components/UsersTable";
 import { AdminServersTable } from "@/features/admin/components/AdminServersTable";
+import { ProfileFormModal } from "@/features/profiles/components/ProfileFormModal";
 import { useAdminNodes, useAdminUsers, useAdminLocations } from "@/features/admin/hooks";
 import { useProfileStore } from "@/store/useProfileStore";
 
@@ -20,8 +21,10 @@ const TABS: TabItem[] = [
 
 export function AdminPage() {
   const [activeTab, setActiveTab] = useState("nodes");
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
   const navigate = useNavigate();
-  const hasApplicationApiKey = useProfileStore((s) => !!s.activeProfile()?.applicationApiKey);
+  const activeProfile = useProfileStore((s) => s.activeProfile());
+  const hasApplicationApiKey = !!activeProfile?.applicationApiKey;
 
   // Werden hier zentral geladen, da mehrere Tabs (Nodes<->Locations, Server<->Nodes/Nutzer)
   // sich gegenseitig referenzieren und Namen statt roher IDs anzeigen sollen.
@@ -36,14 +39,28 @@ export function AdminPage() {
         <main className="flex flex-1 items-center justify-center p-5">
           <EmptyState
             title="Kein Application-API-Key hinterlegt"
-            description="Die Admin-Ansicht (Nodes, Locations, Nutzer, alle Server) benötigt einen Application-API-Key mit Leserechten. Trage ihn im aktiven Profil nach."
+            description={
+              activeProfile
+                ? `Das aktive Profil "${activeProfile.name}" hat keinen Application-API-Key. Die Admin-Ansicht (Nodes, Locations, Nutzer, alle Server) benötigt einen Key mit Leserechten.`
+                : "Kein Profil aktiv."
+            }
             action={
-              <Button variant="primary" onClick={() => navigate("/profiles")}>
-                Profil bearbeiten
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="primary" onClick={() => setEditProfileOpen(true)} disabled={!activeProfile}>
+                  Application-API-Key hinzufügen
+                </Button>
+                <Button variant="outline" onClick={() => navigate("/")}>
+                  Zum Dashboard
+                </Button>
+              </div>
             }
           />
         </main>
+        <ProfileFormModal
+          open={editProfileOpen}
+          onClose={() => setEditProfileOpen(false)}
+          editingProfile={activeProfile}
+        />
       </>
     );
   }

@@ -11,7 +11,13 @@ interface UseServersResult {
   refetch: () => Promise<void>;
 }
 
-export function useServers(): UseServersResult {
+/**
+ * @param pollIntervalSeconds Wenn gesetzt, wird die Serverliste im Hintergrund
+ * periodisch neu geladen (z. B. damit neu erstellte/gelöschte Server auf dem
+ * Dashboard ohne manuellen Reload auftauchen). Läuft ohne den Loading-Skeleton
+ * erneut zu zeigen - nur der allererste Ladevorgang zeigt den Skeleton.
+ */
+export function useServers(pollIntervalSeconds = 0): UseServersResult {
   const api = useClientApi();
   const [servers, setServers] = useState<ServerAttributes[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +40,12 @@ export function useServers(): UseServersResult {
     setLoading(true);
     void fetchServers();
   }, [fetchServers]);
+
+  useEffect(() => {
+    if (!pollIntervalSeconds || pollIntervalSeconds <= 0) return;
+    const id = setInterval(() => void fetchServers(), pollIntervalSeconds * 1000);
+    return () => clearInterval(id);
+  }, [pollIntervalSeconds, fetchServers]);
 
   return { servers, loading, error, refetch: fetchServers };
 }

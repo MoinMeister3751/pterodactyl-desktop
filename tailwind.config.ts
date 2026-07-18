@@ -1,5 +1,15 @@
 import type { Config } from "tailwindcss";
 
+// Jede "base"-Stufe wird über eine CSS-Variable aufgelöst (siehe src/index.css),
+// deren tatsächlicher Wert je nach .dark-Klasse auf <html> unterschiedlich ist.
+// Dadurch funktionieren bg-base-900/text-base-100/... in JEDER Komponente
+// automatisch für Light UND Dark, ohne dass Komponenten selbst dark:-Varianten
+// pflegen müssen. Vorher waren hier feste Hex-Werte hinterlegt, wodurch das
+// Light-Theme in den Einstellungen sichtbar nichts bewirkt hat.
+function baseShade(shade: string) {
+  return `rgb(var(--color-base-${shade}) / <alpha-value>)`;
+}
+
 export default {
   darkMode: "class",
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
@@ -7,19 +17,19 @@ export default {
     extend: {
       colors: {
         base: {
-          50: "#f6f8fc",
-          100: "#e9edf5",
-          200: "#c9d1e3",
-          950: "#0a0e14",
-          900: "#0f1420",
-          850: "#131926",
-          800: "#171e2c",
-          750: "#1c2434",
-          700: "#212a3d",
-          600: "#394563",
-          500: "#6b7796",
-          400: "#8a95b3",
-          300: "#a7b1cb",
+          50: baseShade("50"),
+          100: baseShade("100"),
+          200: baseShade("200"),
+          300: baseShade("300"),
+          400: baseShade("400"),
+          500: baseShade("500"),
+          600: baseShade("600"),
+          700: baseShade("700"),
+          750: baseShade("750"),
+          800: baseShade("800"),
+          850: baseShade("850"),
+          900: baseShade("900"),
+          950: baseShade("950"),
         },
         accent: {
           DEFAULT: "#3b9dff",

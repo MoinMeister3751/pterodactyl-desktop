@@ -3,6 +3,47 @@
 @tailwind utilities;
 
 @layer base {
+  /*
+   * Werte je "base"-Stufe als "R G B" (ohne Kommas, für Tailwinds
+   * rgb(var(--x) / <alpha-value>)-Pattern). Light-Werte sind der Default
+   * (:root), Dark-Werte überschreiben sie, sobald .dark auf <html> gesetzt
+   * ist (siehe store/useSettingsStore.ts#applyThemeClass). Beide Paletten
+   * benutzen dieselbe Stufennummer für dieselbe UI-Rolle (z. B. 950 = größte
+   * Flächenfarbe/Seitenhintergrund, 100 = primäre Textfarbe) - nur die
+   * tatsächliche Helligkeit dreht sich zwischen den Themes um.
+   */
+  :root {
+    --color-base-50: 255 255 255;
+    --color-base-100: 16 21 43;
+    --color-base-200: 43 51 80;
+    --color-base-300: 71 80 107;
+    --color-base-400: 102 112 133;
+    --color-base-500: 139 147 167;
+    --color-base-600: 195 201 214;
+    --color-base-700: 215 219 228;
+    --color-base-750: 228 231 238;
+    --color-base-800: 238 240 244;
+    --color-base-850: 255 255 255;
+    --color-base-900: 248 249 251;
+    --color-base-950: 241 243 247;
+  }
+
+  :root.dark {
+    --color-base-50: 246 248 252;
+    --color-base-100: 233 237 245;
+    --color-base-200: 201 209 227;
+    --color-base-300: 167 177 203;
+    --color-base-400: 138 149 179;
+    --color-base-500: 107 119 150;
+    --color-base-600: 57 69 99;
+    --color-base-700: 33 42 61;
+    --color-base-750: 28 36 52;
+    --color-base-800: 23 30 44;
+    --color-base-850: 19 25 38;
+    --color-base-900: 15 20 32;
+    --color-base-950: 10 14 20;
+  }
+
   html,
   body,
   #root {
@@ -15,7 +56,7 @@
 
   * {
     scrollbar-width: thin;
-    scrollbar-color: theme("colors.base.600") transparent;
+    scrollbar-color: rgb(var(--color-base-600)) transparent;
   }
 
   *::-webkit-scrollbar {
@@ -26,11 +67,11 @@
     background: transparent;
   }
   *::-webkit-scrollbar-thumb {
-    background-color: theme("colors.base.600");
+    background-color: rgb(var(--color-base-600));
     border-radius: 9999px;
   }
   *::-webkit-scrollbar-thumb:hover {
-    background-color: theme("colors.base.500");
+    background-color: rgb(var(--color-base-500));
   }
 
   :focus-visible {

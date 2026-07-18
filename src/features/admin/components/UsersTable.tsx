@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useAdminUsers } from "../hooks";
+import { useMemo, useState } from "react";
+import { useAdminUsers, useAdminServers, useSubuserAccessCounts } from "../hooks";
 import { CreateUserModal } from "./CreateUserModal";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -14,11 +14,21 @@ import type { AdminUserAttributes } from "@/lib/types/application";
 
 export function UsersTable() {
   const { data: users, loading, error, refetch } = useAdminUsers();
+  const { data: adminServers } = useAdminServers();
+  const { counts: canAccessCounts } = useSubuserAccessCounts();
   const api = useApplicationApi();
   const confirm = useConfirm();
   const toast = useToast();
   const [createOpen, setCreateOpen] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
+
+  const ownedCountByUserId = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const server of adminServers) {
+      map.set(server.user, (map.get(server.user) ?? 0) + 1);
+    }
+    return map;
+  }, [adminServers]);
 
   async function handleDelete(user: AdminUserAttributes) {
     if (!api) return;
@@ -65,6 +75,15 @@ export function UsersTable() {
                 <th className="px-3 py-2 text-left font-medium">E-Mail</th>
                 <th className="px-3 py-2 text-left font-medium">Name</th>
                 <th className="px-3 py-2 text-right font-medium">Rolle</th>
+                <th className="px-3 py-2 text-right font-medium" title="Server, die dieser Nutzer besitzt">
+                  Server Owned
+                </th>
+                <th
+                  className="px-3 py-2 text-right font-medium"
+                  title="Als Subuser zu Servern hinzugefügt, die DEIN Account besitzt (die Application API kennt keine panelweite Subuser-Übersicht)"
+                >
+                  Can Access
+                </th>
                 <th className="px-3 py-2 text-right font-medium">Registriert</th>
                 <th className="px-3 py-2" />
               </tr>
@@ -82,6 +101,12 @@ export function UsersTable() {
                       {user.root_admin && <Badge tone="accent">Admin</Badge>}
                       {user["2fa"] && <Badge tone="success">2FA</Badge>}
                     </div>
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-xs text-base-300">
+                    {ownedCountByUserId.get(user.id) ?? 0}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-xs text-base-300">
+                    {canAccessCounts.get(user.email) ?? 0}
                   </td>
                   <td className="px-3 py-2 text-right text-xs text-base-400">{formatDateTime(user.created_at)}</td>
                   <td className="px-3 py-2 text-right">

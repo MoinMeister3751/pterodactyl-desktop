@@ -74,11 +74,21 @@ export function CreateServerModal({ open, onClose, onCreated, users }: CreateSer
 
   async function handleCreate() {
     if (!api || !ownerId || !eggId || !locationId) {
-      setError("Bitte alle Pflichtfelder ausfüllen (Besitzer, Egg, Standort).");
+      const msg = "Bitte alle Pflichtfelder ausfüllen (Besitzer, Egg, Standort).";
+      setError(msg);
+      toast.error("Server konnte nicht erstellt werden", msg);
       return;
     }
     if (!name.trim()) {
-      setError("Servername darf nicht leer sein.");
+      const msg = "Servername darf nicht leer sein.";
+      setError(msg);
+      toast.error("Server konnte nicht erstellt werden", msg);
+      return;
+    }
+    if (!dockerImage.trim()) {
+      const msg = "Kein Docker-Image verfügbar - das gewählte Egg definiert kein gültiges Image.";
+      setError(msg);
+      toast.error("Server konnte nicht erstellt werden", msg);
       return;
     }
     setSaving(true);
@@ -89,7 +99,7 @@ export function CreateServerModal({ open, onClose, onCreated, users }: CreateSer
         description: description.trim() || undefined,
         user: ownerId,
         egg: eggId,
-        docker_image: dockerImage,
+        docker_image: dockerImage.trim(),
         startup,
         environment,
         limits,
@@ -102,7 +112,12 @@ export function CreateServerModal({ open, onClose, onCreated, users }: CreateSer
       onCreated();
       onClose();
     } catch (err) {
-      setError(err instanceof ApiError ? err.userMessage : "Server konnte nicht erstellt werden.");
+      // Fehlertext bewusst per Toast UND inline zeigen: der inline-Text sitzt im
+      // scrollbaren Formularbereich und wurde bei langen Egg-Variablenlisten leicht
+      // übersehen - wirkte dann so, als würde beim Klick auf "Erstellen" nichts passieren.
+      const message = err instanceof ApiError ? err.userMessage : "Server konnte nicht erstellt werden.";
+      setError(message);
+      toast.error("Server konnte nicht erstellt werden", message);
     } finally {
       setSaving(false);
     }
@@ -121,14 +136,17 @@ export function CreateServerModal({ open, onClose, onCreated, users }: CreateSer
       description="Erstellt einen neuen Server via Application API. Die Allokation wird automatisch aus dem gewählten Standort vergeben (Wings sucht einen freien Port)."
       size="xl"
       footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            Abbrechen
-          </Button>
-          <Button variant="primary" onClick={() => void handleCreate()} loading={saving}>
-            Erstellen
-          </Button>
-        </>
+        <div className="flex w-full items-center justify-between gap-3">
+          {error ? <p className="text-xs text-danger">{error}</p> : <span />}
+          <div className="flex shrink-0 gap-2">
+            <Button variant="ghost" onClick={onClose}>
+              Abbrechen
+            </Button>
+            <Button variant="primary" onClick={() => void handleCreate()} loading={saving}>
+              Erstellen
+            </Button>
+          </div>
+        </div>
       }
     >
       <div className="flex max-h-[65vh] flex-col gap-4 overflow-y-auto pr-1">
@@ -254,8 +272,6 @@ export function CreateServerModal({ open, onClose, onCreated, users }: CreateSer
             ))}
           </div>
         )}
-
-        {error && <p className="text-xs text-danger">{error}</p>}
       </div>
     </Modal>
   );

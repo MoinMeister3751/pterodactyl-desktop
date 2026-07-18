@@ -105,6 +105,55 @@ export function useAdminEggs(nestId: number | null): AdminListResult<EggAttribut
   return { data, loading, error, refetch };
 }
 
+/**
+ * Zählt pro E-Mail-Adresse, bei wie vielen der EIGENEN Server (über die Client-API
+ * abrufbar) ein Nutzer als Subuser eingetragen ist. Die Application API bietet
+ * keinen panelweiten Subuser-Endpoint - Subuser sind rein ein Client-API-/
+ * Server-Owner-Konzept. Ein Rundum-Bild über ALLE Server des Panels ist damit
+ * grundsätzlich nicht abrufbar; diese Funktion liefert daher bewusst nur die
+ * Zahlen für die vom aktuell angemeldeten Account besessenen Server (klar so
+ * beschriftet in der UI, siehe UsersTable "Can Access"-Spalte).
+ */
+export function useSubuserAccessCounts(): { counts: Map<string, number>; loading: boolean } {
+  const clientApi = useClientApi();
+  const [counts, setCounts] = useState<Map<string, number>>(new Map());
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!clientApi) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const ownServers = await clientApi.listServers();
+        const results = await Promise.allSettled(
+          ownServers.map((s) => clientApi.listSubusers(s.identifier)),
+        );
+        if (cancelled) return;
+        const next = new Map<string, number>();
+        for (const result of results) {
+          if (result.status !== "fulfilled") continue;
+          for (const subuser of result.value) {
+            next.set(subuser.email, (next.get(subuser.email) ?? 0) + 1);
+          }
+        }
+        setCounts(next);
+      } catch {
+        // Kein hartes Fehlerbanner nötig - Spalte zeigt dann einfach "0" statt zu crashen.
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [clientApi]);
+
+  return { counts, loading };
+}
+
 /** Eigene Account-ID (über die Client-API), um "nur meine Server" filtern zu können. */
 export function useOwnAccountId(): number | null {
   const clientApi = useClientApi();
